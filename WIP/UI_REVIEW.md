@@ -118,3 +118,27 @@ Not used: the organization's Skyvern design system (dark slate, Inter). want-it 
 5. Tells pass (2 hours). Grep list in section 5.
 
 What this does not change: data contracts, API routes, settlement rules, the fixture stages, or the labeling requirements in SPEC section 2 (simulated vendors, recorded replay timestamps, estimate tags). Those labels move to footnotes and tooltips; they do not disappear.
+
+## 8. Update, later on 2026-10-11: the flow Cindy described, and the process from Lenny's article
+
+### The product flow (replaces the map-first marketplace)
+Cindy's direction, in order: a real marketplace you can browse and search (no map; matching is back-end), pick a product, fill in buying info, place the purchase order, then watch the live call room where agents negotiate. Plus a second entry point: a "New listing" button where you describe what you need in plain words, a short "Matching" screen, a match (hard-coded to a Certly group that was 10 seats short of its tier), "threshold reached", an auto-buy that runs itself, and a "Settled" receipt.
+
+The canvas top row is now that flow, boards 1 to 5, linked so Play walks through it:
+1. Marketplace: sidebar (sections, categories, your need), high-contrast search, one card per vendor product with the quote for this pool as the largest figure and a Join button; "Any vendor" pinned first; "New listing" button in the header and sidebar.
+2. Product and purchase order: product, best price, a table of the five quotes for this pool with the live one marked, three facts; the order form with seats, optional cap, company, work email, a note for the agent, "about $185 at today's best, never above $280", one button.
+3. Order placed: one sheet with the facts, the never-above amount, a five-step status with the live step pulsing, one button into the live room, cancel as a quiet link.
+4. Live room, from Cindy's sketch: every live Dial call is a large tile (vendor, elapsed time, level meter, last two turns, offer on the table); finished calls are a ranked table with the quote as the largest figure; click any call to join: transcript fills the screen in two columns (speaker, text), a Sound on/off toggle, the other calls in a rail. Settle unlocks when every call has ended.
+5. New listing: five screens in one board. Plain-words textarea with a "Read as" parse, Matching (three steps), Match found with the threshold meter filling to 50 of 50, Buying for you (four steps tick in), Settled with the receipt and the redemption link. It advances on its own in Play.
+
+Open dependency for board 4: hearing the call needs a listen-in audio stream or a recording URL from Dial. Transcript polling already exists; audio does not.
+
+### Process, following "How to turn your AI into a world-class designer" (Anshu Chimala, Lenny's Newsletter, 2026-09-01)
+- Seed strings for variety (Discover): `scripts/design-seed.sh` prints a random 40-character seed and derives a direction from it (mood, layout archetype, type, accent hue, motion). Eight seeds produced eight directions; the one that was furthest from the house look became the dark "Timing tower" room (board D), which the critic scored highest for hierarchy. Keep the script; run it when a screen feels generic.
+- Separate critic (Define): `WIP/design-critic.md` is the fixed critic prompt. It runs in a fresh subagent on a stronger model that sees only screenshots and ranks every screen, befores included. Round 1 scores (out of 10): timing tower 7, stage 6, order placed 6, order form 5.5, call log 5.5, marketplace 5, call wall 4.5, joined call 4, storefront before 4, switchboard 3.5, marketplace before 3, negotiation before 2.5. Its top gaps were applied to the flow boards: quote as the largest figure, explicit Join buttons, search first and high contrast, no monogram tiles, no placeholder hero, live calls as the hero and finished calls as a ranked table, two-column transcripts instead of bubbles, one live accent (green with a text label, never red), strike only the number, one list anchor ($28.00, the lowest list), consistent counts (249 seats, 12 startups).
+- Cut (Deliver): removed from the flow boards after the critique: the "Pools opening soon" placeholder cards, the need-by field, the duplicate "Join a call" link, the check disc on the confirmation, idle meter glyphs on finished calls, the "citing" card inside the grid.
+- Not done: image generation and video generation (techniques 4 and 5) need an OpenAI, Gemini or fal.ai key with a spend limit in a gitignored `.env.agents`; nothing in this product wants hero imagery, so skip unless the demo video needs it. Technique 7 is paywalled.
+- Round 2 of the critic is pending: the in-app browser pane was closed mid-run, so the fixed boards could not be screenshotted. Reopen the browser pane (or say so) and the loop continues; expect one more round before scores plateau.
+
+### Vendor and list anchors used across the boards
+Certly $30.00, Vantly $32.00, Trustwise $28.00, Auditly $34.00, ComplyKit $29.00 list. Quotes for the pool: Auditly $18.50 (on the phone), Vantly $19.00, Trustwise $20.00, Certly $22.93 with a $40 account fee, ComplyKit not called. "List from $28.00" is the anchor everywhere; the storefront's old $30 anchor is gone.

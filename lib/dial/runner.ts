@@ -114,10 +114,11 @@ async function startNextCall({ mode, vendorId, fromRunner = false }: StartOpts):
   const sequence = slot > 0 && !slotTaken ? slot : maxSeq + 1;
 
   // 2. Validate config / recording BEFORE any side effects.
-  const vmode = vendorMode();
+  // HUMAN_VENDOR_ID: this one vendor is answered by a real person on <VENDOR>_PHONE; the rest use the AI vendor line.
+  const vmode = process.env.HUMAN_VENDOR_ID === vendor.id ? "human" : vendorMode();
   let to = "";
   if (mode === "live") {
-    const cfg = liveConfigError([vendor.id]);
+    const cfg = vmode === "human" ? (vendorPhone(vendor.id) ? null : `Set ${vendorPhoneEnvName(vendor.id)} for the human-answered vendor`) : liveConfigError([vendor.id]);
     if (cfg) return reply(400, { error: cfg });
     to = vmode === "ai" ? process.env.DIAL_VENDOR_PHONE!.trim() : vendorPhone(vendor.id)!.trim();
     if (!E164.test(to)) return reply(400, { error: `Vendor phone number is not E.164 (e.g. +14155550123): "${to}"` });
