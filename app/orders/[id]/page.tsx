@@ -22,7 +22,7 @@ type Step = { label: string; detail?: string; state: StepState };
 
 function buildSteps(d: OrderResponse): Step[] {
   const o = d.order;
-  const hold = money(o.holdAmountCents);
+  const hold = money(o.seats * Math.min(d.listPricePerSeatCents, o.maxPricePerSeatCents ?? d.listPricePerSeatCents));
   const finalTotal = o.finalPricePerSeatCents != null ? money(o.finalPricePerSeatCents * o.seats) : null;
   const steps: Step[] = [{ label: "Order placed", detail: `Card hold of ${hold} (simulated)`, state: "done" }];
 
@@ -68,9 +68,9 @@ function buildSteps(d: OrderResponse): Step[] {
   }
 
   steps.push({
-    label: "Charged (simulated)",
-    detail: o.status === "charged" ? "Captured at your final price" : "Captured at your final price when the pool closes",
-    state: o.status === "charged" ? "done" : "pending",
+    label: "Payment is simulated",
+    detail: "This demo saves the final price. It does not charge a real card.",
+    state: decided ? "done" : "pending",
   });
   return steps;
 }

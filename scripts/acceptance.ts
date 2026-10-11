@@ -11,8 +11,9 @@
  *   directly with constructed Order/Quote objects (no DB, no server needed).
  * - If DB_PATH is set (same file the server uses), an extra end-to-end scenario inserts a
  *   fixture call+quote straight into SQLite and drives POST /api/pool/settle.
- * - Live Dial / Anthropic / Keewano are never called. The live-mode negotiate check is
- *   skipped when Dial keys look configured (it would place a real call).
+ * - Run the target server with external keys disabled for offline checks.
+ *   Recorded-call extraction requires RUN_RECORDED_EXTRACTION=1 because it uses Anthropic.
+ *   The live-mode negotiate check is skipped when Dial keys look configured.
  *
  * Output: PASS/FAIL/SKIP per check; exit code 1 if any check FAILs.
  */
@@ -45,9 +46,6 @@ function check(name: string, ok: boolean, detail?: string) {
 function skip(name: string, why: string) {
   nSkip++;
   console.log(`  SKIP  ${scenarioLabel} ${name} (${why})`);
-}
-function note(msg: string) {
-  console.log(`  NOTE  ${scenarioLabel} ${msg}`);
 }
 const j = (v: unknown) => JSON.stringify(v);
 function eq<T>(name: string, actual: T, expected: T) {
@@ -213,7 +211,7 @@ function recordedCallsFor(vendorId: string): number {
 }
 
 function listFor(vendors: Vendor[], o: Order): number {
-  return Math.min(...vendors.filter((v) => v.category === o.category && (!o.preferredVendorId || v.id === o.preferredVendorId)).map((v) => v.listPricePerSeatCents));
+  return o.preferredVendorId ? vendors.find((v) => v.id === o.preferredVendorId)?.listPricePerSeatCents ?? LIST_ANY : LIST_ANY;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -468,7 +466,7 @@ async function main() {
     const Pv = mkOrder("Pv", 5, { preferredVendorId: "vantly", maxPricePerSeatCents: 3100 });
     expectSettlement("only unconfirmed quote + max < list -> canceled_over_max", settle([Pv], [cheapNoSep]).get("Pv"), "canceled_over_max", null);
     const unknown = settle([R], [mkQuote("vantly", [[1, 2000]], { sep: null })]).get("R");
-    note(`separateAccountsConfirmed=null (unstated) quote is currently ${unknown?.status === "deal_applied" ? "ACCEPTED" : "ignored"} (SPEC §4 says "quotes that confirm separate accounts"; code only skips === false)`);
+    expectSettlement("unconfirmed separate accounts cannot apply", unknown, "list_price", LIST_ANY, null);
   });
 
   // ---- 5 end-to-end via the API (no quotes available) ----------------------------------------
@@ -574,12 +572,15 @@ async function main() {
       const v = await view();
       eq("failed replay has no side effects: pool still 'open'", v.pool.status, "open");
       eq("failed replay has no side effects: no call rows", v.calls.length, 0);
-    } else {
+    } else if (process.env.RUN_RECORDED_EXTRACTION === "1") {
       const r = await api<Call>("POST", "/api/pool/negotiate", { mode: "replay" });
       check("replay with a recording -> 201", r.status === 201, `${r.status} ${r.text.slice(0, 200)}`);
       eq("replay call source", r.json?.source, "recorded_replay");
       check("replay call carries its recordedAt timestamp", typeof r.json?.recordedAt === "string" && !Number.isNaN(Date.parse(r.json.recordedAt)), r.text.slice(0, 200));
-      note("data/recorded-calls.json has certly recordings: 'no recordings' case not exercised");
+      const done = await api<{ call: Call }>("GET", `/api/calls/${r.json.id}`);
+      check("recorded-call extraction completes before reset", done.json.call.status === "extracted" || done.json.call.status === "failed");
+    } else {
+      skip("replay with a real recording", "set RUN_RECORDED_EXTRACTION=1 to allow Anthropic extraction; offline checks do not start it");
     }
 
     await reset();

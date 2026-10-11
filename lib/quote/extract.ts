@@ -101,7 +101,9 @@ function resolveExpiry(x: Extraction, base: Date): string | null {
  */
 export async function extractQuote(call: Call, opts: { now?: Date } = {}): Promise<Quote | null> {
   if (call.transcriptTurns.length < 2) return null;
-  const base = opts.now ?? appNow();
+  const extractedAt = opts.now ?? appNow();
+  const base = new Date(call.recordedAt ?? call.endedAt ?? call.startedAt);
+  if (!Number.isFinite(base.getTime())) throw new Error("Call timestamp is invalid; cannot determine the offer expiry.");
 
   const client = new Anthropic({ timeout: 60_000, maxRetries: 2 });
   const resp = await client.messages.parse({
@@ -111,7 +113,7 @@ export async function extractQuote(call: Call, opts: { now?: Date } = {}): Promi
     messages: [
       {
         role: "user",
-        content: `Current date/time: ${base.toISOString()}\nVendor being called: ${call.vendorId}\n\nTRANSCRIPT:\n${formatTranscript(call)}\n\nExtract the vendor's quote.`,
+        content: `Call date/time: ${base.toISOString()}\nRelative deadlines in the transcript refer to this original call date, even when replayed later.\nVendor being called: ${call.vendorId}\n\nTRANSCRIPT:\n${formatTranscript(call)}\n\nExtract the vendor's quote.`,
       },
     ],
     output_config: { effort: "low", format: zodOutputFormat(Extraction) },
@@ -145,8 +147,8 @@ export async function extractQuote(call: Call, opts: { now?: Date } = {}): Promi
     separateAccountsConfirmed: x.separateAccountsConfirmed,
     expiresAt: resolveExpiry(x, base),
     conditions: x.conditions.map((c) => c.trim()).filter(Boolean),
-    evidence: evidence.join(" … "),
+    evidence: evidence.join(" ... "),
     status: "supplier_stated",
-    createdAt: base.toISOString(),
+    createdAt: extractedAt.toISOString(),
   });
 }

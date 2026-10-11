@@ -142,3 +142,8 @@ The lead merged PR 1 before the lint follow-up.
 The full live rehearsal remains pending.
 The repository has no remote CI workflows configured.
 Temporary servers started for verification have been stopped.
+
+## Full flow follow-up
+
+The real transcript, volume failure, lifecycle fixes, and current production checks are recorded in [VERIFICATION.md](VERIFICATION.md).
+Use `pnpm test` for the full regression suite and `scripts/verify-certly.ts` for an explicitly authorized real extraction check against a separate local test server.

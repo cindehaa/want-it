@@ -6,6 +6,7 @@ import { recomputePool } from "@/lib/pool";
 import { settleOrders } from "@/lib/settle";
 import { listPriceOrDefault } from "@/lib/seed";
 import { buildPoolView, emitEvent } from "@/lib/poolView";
+import { negotiationInProgress } from "@/lib/dial/runner";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,6 +16,9 @@ const ACTIVE: Order["status"][] = ["held", "pooled", "negotiating"];
 export async function POST() {
   const pool = recomputePool();
   if (pool.status === "settled") return NextResponse.json(await buildPoolView()); // already settled; nothing to redo
+  if (negotiationInProgress()) {
+    return NextResponse.json({ error: "Negotiation is still in progress. Stop the run and wait for the current call and extraction to finish before settling." }, { status: 409 });
+  }
 
   const members = pool.memberOrderIds.map((id) => get("orders", id)).filter((o): o is Order => !!o && ACTIVE.includes(o.status));
   const callIds = new Set(all("calls").filter((c) => c.poolId === pool.id).map((c) => c.id));
@@ -23,7 +27,7 @@ export async function POST() {
   const byId = new Map(members.map((o) => [o.id, o]));
   const at = now().toISOString();
   let anyDeal = false;
-  for (const s of settleOrders(members, quotes)) {
+  for (const s of settleOrders(members, quotes, now())) {
     const o = byId.get(s.orderId);
     if (!o) continue;
     if (s.status === "deal_applied") {

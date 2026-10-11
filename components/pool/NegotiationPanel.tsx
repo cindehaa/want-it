@@ -63,7 +63,7 @@ export default function NegotiationPanel({ view, phase, onChanged }: { view: Poo
   }, []);
 
   const calls = [...view.calls].sort((a, b) => a.sequence - b.sequence);
-  const busyCall = calls.some((c) => c.status === "queued" || c.status === "in_progress");
+  const busyCall = calls.some((c) => c.status !== "extracted" && c.status !== "failed");
   const settled = phase === "done";
   const vendorName = (id: string) => view.vendors.find((v) => v.id === id)?.name ?? id;
   // Exactly one primary button on the page: here until a quote exists, then "Settle pool" takes over.

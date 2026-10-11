@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Call, PoolView } from "@/lib/contracts";
 import { fmtMmSs, usdSeat } from "@/components/pool/format";
-import { effectiveFor, poolFacts, type Lane } from "./derive";
+import { effectiveFor, type Lane } from "./derive";
 
 export const SPEEDS = [1, 2, 4] as const;
 export type Speed = (typeof SPEEDS)[number];
@@ -43,14 +43,15 @@ export const totalMs = (plan: PlaybackLane[]) => plan.reduce((m, p) => Math.max(
 
 /** The lanes as they look at shared-clock time t: only turns already spoken, quote only once the call has ended. */
 export function lanesAt(view: PoolView, lanes: Lane[], plan: PlaybackLane[], t: number): Lane[] {
-  const facts = poolFacts(view);
+  const ids = new Set(view.pool.memberOrderIds);
+  const members = view.orders.filter((o) => ids.has(o.id));
   return lanes.map((l) => {
     const p = plan.find((x) => x.vendorId === l.vendor.id);
     if (!p?.call) return { ...l, call: null, quote: null, eff: null, eligible: false, status: "no_recording" as const, bestBefore: null };
     const landed = t >= p.endMs;
     const turns = p.call.transcriptTurns.filter((x) => x.startMs <= t);
     const quote = landed ? (view.quotes.find((q) => q.callId === p.call!.id) ?? null) : null;
-    const eff = quote ? effectiveFor(quote, facts) : null;
+    const eff = quote ? effectiveFor(quote, members, new Date(view.now)) : null;
     const eligible = !!quote && quote.separateAccountsConfirmed === true && !!eff;
     const status: Lane["status"] = !landed ? "calling" : quote ? "extracted" : p.call.status === "failed" ? "failed" : "extracted";
     return { ...l, call: { ...p.call, transcriptTurns: turns }, quote, eff, eligible, status, bestBefore: null };

@@ -8,7 +8,7 @@ import { callMinutes, humanBaseline } from "./derive";
 export default function TimePanel({ view, vendorCount }: { view: PoolView; vendorCount: number }) {
   const startups = view.pool.memberOrderIds.length;
   const calls = view.calls.filter((c) => c.status !== "failed");
-  const agentMin = calls.reduce((s, c) => s + callMinutes(c, view.now), 0);
+  const agentMin = calls.reduce((s, c) => s + callMinutes(c), 0);
   const base = humanBaseline();
   const humanMin = startups * vendorCount * base.perVendorMinutes;
   const pct = humanMin > 0 ? Math.max(0.6, Math.min(100, (agentMin / humanMin) * 100)) : 0;

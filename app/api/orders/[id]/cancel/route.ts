@@ -20,7 +20,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     );
   }
   const at = now().toISOString();
-  const updated = put("orders", { ...order, status: "canceled_by_buyer", updatedAt: at });
+  const updated = put("orders", { ...order, status: "canceled_by_buyer", holdAmountCents: 0, updatedAt: at });
   recomputePool();
   emitEvent({ type: "order_canceled", orderId: order.id, category: order.category, seats: order.seats, at });
   return NextResponse.json(updated, { status: 200 });

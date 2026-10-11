@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { DemandEvidence, PoolView } from "@/lib/contracts";
-import { getJson, postJson } from "@/components/pool/api";
+import { deleteJson, getJson, postJson } from "@/components/pool/api";
 import { fmtAgo, fmtRemaining, usdSeat } from "@/components/pool/format";
 import { Badge, Spinner } from "@/components/pool/ui";
 import { buildLanes, parseRun, poolFacts, rankLanes, type Lane, type RunState } from "./derive";
@@ -72,6 +72,7 @@ export default function NegotiationClient() {
   const [personas, setPersonas] = useState<PersonasPayload | null>(null);
   const [pending, setPending] = useState<RunMode | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
+  const [stopping, setStopping] = useState(false);
   const [runChecked, setRunChecked] = useState(false);
   const [playbackOpen, setPlaybackOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -228,6 +229,16 @@ export default function NegotiationClient() {
     void poolRef.current();
   }
 
+  async function stopRun() {
+    setStopping(true);
+    setRunError(null);
+    const res = await deleteJson("/api/pool/negotiate-all");
+    setStopping(false);
+    if (!res.ok) setRunError(res.error);
+    else setRun(parseRun(res.data));
+    void poolRef.current();
+  }
+
   if (!view) {
     return (
       <main className="mx-auto max-w-[1400px] px-4 py-10 sm:px-6">
@@ -241,7 +252,7 @@ export default function NegotiationClient() {
   const liveLanes = baseLanes;
   const facts = poolFacts(view);
   const running = !!run?.running;
-  const showControls = source === "live";
+  const showControls = source === "live" && runAvailable;
   const replaying = playbackOpen && !running;
   // During playback every lane is derived from the shared clock; otherwise the live DB state.
   const lanes = replaying ? lanesAt(view, liveLanes, plan, clock.t) : liveLanes;
@@ -258,7 +269,7 @@ export default function NegotiationClient() {
   const closesInMs = new Date(view.pool.windowClosesAt).getTime() - new Date(view.now).getTime();
   const closed = view.pool.status === "settled" || closesInMs <= 0;
   const settled = view.pool.status === "settled";
-  const settleReady = source === "live" && !running && !replaying && !!liveBest && !settled;
+  const settleReady = source === "live" && !running && !replaying && !settled && !view.calls.some((c) => c.status !== "extracted" && c.status !== "failed");
   const replayEndMs = Object.fromEntries(plan.map((p) => [p.vendorId, p.endMs]));
 
   return (
@@ -292,12 +303,15 @@ export default function NegotiationClient() {
           <RunControls
             running={running}
             pending={pending}
-            error={runError}
+            error={runError ?? (run?.error === "Stopped by user" ? null : run?.error ?? null)}
             parallelAvailable={run?.parallelAvailable === true}
             canPlayback={canPlayback}
             playbackOpen={replaying}
             onRun={startRun}
             onPlayback={startPlayback}
+            onStop={stopRun}
+            stopping={stopping}
+            settled={settled}
           />
         )}
       </div>
@@ -432,6 +446,7 @@ function RunBadge({ run, lanes }: { run: RunState | null; lanes: Lane[] }) {
     );
   }
   if (run.finishedAt) {
+    if (run.error) return <Badge tone="warn">{run.error === "Stopped by user" ? "Run stopped" : "Run failed"}</Badge>;
     const got = lanes.filter((l) => l.eligible).length;
     return <Badge tone="accent">Run finished: {got} of {lanes.length} quotes</Badge>;
   }

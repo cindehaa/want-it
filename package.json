@@ -1,11 +1,12 @@
 {
   "name": "app",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
+    "test": "tsx --test lib/*.test.ts lib/**/*.test.ts components/**/*.test.ts",
     "lint": "eslint"
   },
   "pnpm": {

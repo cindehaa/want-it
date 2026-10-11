@@ -42,7 +42,10 @@ Pitch line: *a limit order with bargaining power.* A price-watch agent waits for
 - **Count each order once** (latest version). Idempotency key on `POST /api/orders`.
 - **Effective price** for vendor quote q at pool size S seats: `tierPrice(q, S) + perAccountFee / seatsOfOrder`. Pick the best quote (lowest effective price) among quotes that confirm separate accounts.
 - **Per order:** `cap = min(list, max ?? list)`. If best effective price ≤ cap and < list → `deal_applied` at that price. If no quote beats list and (no max or max ≥ list) → `list_price`. Else → `canceled_over_max`.
-- **Known edge case (not handled in MVP, answer if asked):** dropping over-max buyers shrinks S, which can drop the tier and push out more buyers. Fix: iterate settlement until membership is stable (fixed point), then show final prices. MVP does a single pass; demo data doesn't trigger it.
+- **Volume validation:** settlement removes buyers who cannot take an offer and buyers assigned to another vendor, then recomputes tiers until each vendor has stable support.
+  This replaces the deferred single-pass behavior because the real Certly recording requires 96 seats and the original pool loses eight seats at $21.
+  Support only shrinks, so settlement terminates and never promises an unsupported tier.
+  This conservative rule can decline a feasible alternative allocation; it does not optimize every possible assignment across vendors.
 - Money is integer cents, USD, per seat unless named `total`.
 
 ## 5. Data contracts — `lib/contracts.ts` (Zod; owned by Lead; changes announced in `WIP/LOG.md`)

@@ -15,6 +15,9 @@ export default function RunControls({
   playbackOpen,
   onRun,
   onPlayback,
+  onStop,
+  stopping,
+  settled,
 }: {
   running: boolean;
   pending: RunMode | null;
@@ -24,8 +27,12 @@ export default function RunControls({
   playbackOpen: boolean;
   onRun: (mode: RunMode) => void;
   onPlayback: () => void;
+  onStop: () => void;
+  stopping: boolean;
+  settled: boolean;
 }) {
   const busy = running || pending !== null;
+  const startDisabled = busy || settled;
   const btn =
     "inline-flex h-7 items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 text-xs font-medium text-ink transition-colors hover:bg-canvas disabled:cursor-not-allowed disabled:opacity-50";
   return (
@@ -35,20 +42,21 @@ export default function RunControls({
         <button type="button" onClick={onPlayback} disabled={!canPlayback || busy} className={btn} title={canPlayback ? undefined : "No finished calls with transcripts to play yet."}>
           {playbackOpen ? "Replay again" : "Play recorded calls side by side"}
         </button>
-        <button type="button" onClick={() => onRun("replay")} disabled={busy} className={btn}>
+        <button type="button" onClick={() => onRun("replay")} disabled={startDisabled} className={btn}>
           {pending === "replay" && <Spinner />}
           Replay (re-run recordings)
         </button>
-        <button type="button" onClick={() => onRun("live")} disabled={busy} className={btn}>
+        <button type="button" onClick={() => onRun("live")} disabled={startDisabled} className={btn}>
           {pending === "live" && <Spinner />}
           Run live, one at a time
         </button>
         {parallelAvailable && (
-          <button type="button" onClick={() => onRun("parallel")} disabled={busy} className={btn}>
+          <button type="button" onClick={() => onRun("parallel")} disabled={startDisabled} className={btn}>
             {pending === "parallel" && <Spinner />}
             Run live, all vendors in parallel
           </button>
         )}
+        {running && <button type="button" onClick={onStop} disabled={stopping} className={btn}>{stopping ? "Stopping..." : "Stop after current calls"}</button>}
       </div>
       <p className="text-[11px] leading-snug text-faint lg:text-right">
         Live calls are real Dial phone calls (~3 min each).

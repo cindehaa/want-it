@@ -1,7 +1,7 @@
 // Builds the outbound phone-agent system prompt from REAL pool state. Every number in here comes from
 // our DB / Keewano / extracted supplier quotes. The agent is told never to state anything else.
 import type { DemandEvidence, Order, Pool, Quote, Vendor } from "@/lib/contracts";
-import { effectivePrice, tierPrice } from "@/lib/settle";
+import { quoteIsValid, settleOrders, tierPrice } from "@/lib/settle";
 
 export type BuildInstructionInput = {
   vendor: Vendor;
@@ -59,13 +59,14 @@ export type BestEffectiveQuote = {
 
 /** All-in (effective) price of one quote over the pool orders it would cover; null if it cannot apply (no tier at pool size, no separate accounts, expired). */
 export function effectiveAllIn(q: Quote, members: Order[], now: Date = new Date()): BestEffectiveQuote | null {
-  if (q.tiers.length === 0 || q.separateAccountsConfirmed !== true) return null;
-  if (q.expiresAt && new Date(q.expiresAt).getTime() < now.getTime()) return null;
-  const covered = eligibleFor(q.vendorId, members);
+  if (q.tiers.length === 0 || !quoteIsValid(q, now)) return null;
+  const decisions = settleOrders(eligibleFor(q.vendorId, members), [q], now);
+  const accepted = new Map(decisions.filter((s) => s.vendorId === q.vendorId).map((s) => [s.orderId, s.pricePerSeatCents!]));
+  const covered = members.filter((o) => accepted.has(o.id));
   const seats = covered.reduce((s, o) => s + o.seats, 0);
   const tier = tierPrice(q, seats);
   if (seats === 0 || tier == null) return null;
-  const total = covered.reduce((s, o) => s + (effectivePrice(q, seats, o) ?? tier) * o.seats, 0);
+  const total = covered.reduce((s, o) => s + accepted.get(o.id)! * o.seats, 0);
   return { quote: q, vendorId: q.vendorId, allInPerSeatCents: Math.round(total / seats), tierPricePerSeatCents: tier, accounts: covered.length, seats };
 }
 

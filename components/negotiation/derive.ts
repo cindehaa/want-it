@@ -1,7 +1,10 @@
 // Pure derivations for the negotiation room. Price semantics mirror lib/settle/index.ts:
 // tierPrice = lowest price among tiers whose minSeats <= pool seats; effective = tier + perAccountFee / seats-per-buyer.
 import benchmark from "@/data/benchmark.json";
-import type { Call, PoolView, Quote, Vendor } from "@/lib/contracts";
+import type { Call, Order, PoolView, Quote, Vendor } from "@/lib/contracts";
+import { effectiveAllIn } from "@/lib/dial/prompt";
+import { listPriceFor } from "@/lib/vendors";
+export { callMinutes } from "@/lib/dial/duration";
 
 export type RunState = {
   running: boolean;
@@ -9,6 +12,8 @@ export type RunState = {
   order: string[];
   startedAt: string | null;
   finishedAt: string | null;
+  error?: string | null;
+  vendorStates?: Record<string, string>;
   /** Parallel live run (every vendor dialed at once). Optional so fixtures stay valid. */
   parallel?: boolean;
   round?: number;
@@ -28,6 +33,8 @@ export function parseRun(v: unknown): RunState | null {
     order: Array.isArray(r.order) ? r.order.filter((x): x is string => typeof x === "string") : [],
     startedAt: typeof r.startedAt === "string" ? r.startedAt : null,
     finishedAt: typeof r.finishedAt === "string" ? r.finishedAt : null,
+    error: typeof r.error === "string" ? r.error : null,
+    vendorStates: Object.fromEntries(((o.progress as { vendors?: { vendorId: string; state: string }[] } | undefined)?.vendors ?? []).map((v) => [v.vendorId, v.state])),
     parallel: r.parallel === true,
     round: typeof r.round === "number" ? r.round : 1,
     parallelAvailable: o.parallelAvailable === true,
@@ -49,12 +56,12 @@ export function poolFacts(view: PoolView): PoolFacts {
 
 export type Effective = { tierCents: number; feePerSeatCents: number; effectiveCents: number; appliedMinSeats: number };
 
-export function effectiveFor(q: Quote, facts: PoolFacts): Effective | null {
-  const tier = tierPrice(q, facts.seats);
-  if (tier == null) return null;
-  const applied = q.tiers.find((t) => t.pricePerSeatCents === tier && facts.seats >= t.minSeats);
-  const feePerSeatCents = q.perAccountFeeCents / Math.max(1, facts.avgSeats);
-  return { tierCents: tier, feePerSeatCents, effectiveCents: Math.round(tier + feePerSeatCents), appliedMinSeats: applied?.minSeats ?? 0 };
+export function effectiveFor(q: Quote, members: Order[], at: Date): Effective | null {
+  const offer = effectiveAllIn(q, members, at);
+  if (!offer) return null;
+  const tier = offer.tierPricePerSeatCents;
+  const applied = q.tiers.find((t) => t.pricePerSeatCents === tier && offer.seats >= t.minSeats);
+  return { tierCents: tier, feePerSeatCents: offer.allInPerSeatCents - tier, effectiveCents: offer.allInPerSeatCents, appliedMinSeats: applied?.minSeats ?? 0 };
 }
 
 export type LaneStatus = "waiting" | "calling" | "transcribing" | "extracted" | "failed" | "no_recording";
@@ -75,7 +82,10 @@ export type Lane = {
 function laneStatus(call: Call | null, run: RunState | null, vendorId: string): LaneStatus {
   if (!call) {
     if (run && !run.running && run.finishedAt && run.order.includes(vendorId)) {
-      return run.mode === "replay" ? "no_recording" : "failed";
+      const state = run.vendorStates?.[vendorId];
+      if (state === "no_recording") return "no_recording";
+      if (state === "failed") return "failed";
+      if (!run.error && !state) return run.mode === "replay" ? "no_recording" : "failed";
     }
     return "waiting";
   }
@@ -112,14 +122,15 @@ export function orderVendors(view: PoolView, run: RunState | null): Vendor[] {
 }
 
 export function buildLanes(view: PoolView, run: RunState | null): Lane[] {
-  const facts = poolFacts(view);
+  const ids = new Set(view.pool.memberOrderIds);
+  const members = view.orders.filter((o) => ids.has(o.id));
   const vendors = orderVendors(view, run);
   let best: number | null = null;
   return vendors.map((vendor, index) => {
     const calls = view.calls.filter((c) => c.vendorId === vendor.id).sort((a, b) => b.sequence - a.sequence);
     const call = calls[0] ?? null;
     const quote = call ? (view.quotes.find((q) => q.callId === call.id) ?? null) : null;
-    const eff = quote ? effectiveFor(quote, facts) : null;
+    const eff = quote ? effectiveFor(quote, members, new Date(view.now)) : null;
     const eligible = !!quote && quote.separateAccountsConfirmed === true && !!eff;
     const lane: Lane = { vendor, index, call, quote, status: laneStatus(call, run, vendor.id), eff, eligible, bestBefore: best };
     if (eligible && eff && (best == null || eff.effectiveCents < best)) best = eff.effectiveCents;
@@ -138,7 +149,7 @@ export type ChartPoint = { label: string; best: number | null; offer: number | n
 
 /** "Best offer so far" per call, in lane order. Dollars per seat. Uncalled vendors stay null so the line grows. */
 export function ratchetSeries(lanes: Lane[]): { points: ChartPoint[]; lowestList: number } {
-  const lowestList = Math.min(...lanes.map((l) => l.vendor.listPricePerSeatCents));
+  const lowestList = listPriceFor(lanes[0]?.vendor.category ?? "soc2_compliance", null);
   const points: ChartPoint[] = [{ label: "List", best: lowestList / 100, offer: null }];
   let best = lowestList;
   for (const l of lanes) {
@@ -155,15 +166,6 @@ export function ratchetSeries(lanes: Lane[]): { points: ChartPoint[]; lowestList
     points.push({ label: l.vendor.name, best: best / 100, offer: offer == null ? null : offer / 100 });
   }
   return { points, lowestList };
-}
-
-/** Minutes the agent spent on a call: wall clock when both timestamps exist, else the transcript length. */
-export function callMinutes(c: Call, nowIso: string): number {
-  const start = new Date(c.startedAt).getTime();
-  const end = c.endedAt ? new Date(c.endedAt).getTime() : c.status === "in_progress" || c.status === "queued" ? new Date(nowIso).getTime() : NaN;
-  const wall = Number.isFinite(start) && Number.isFinite(end) ? (end - start) / 60000 : 0;
-  const lastTurn = c.transcriptTurns.reduce((m, t) => Math.max(m, t.startMs), 0) / 60000;
-  return Math.max(wall, lastTurn, 0);
 }
 
 const HUMAN_STEP_IDS = ["contact_sales", "sales_call", "negotiate"] as const;

@@ -165,6 +165,7 @@ async function startNextCall({ mode, vendorId, fromRunner = false }: StartOpts):
   const poolCallIds = new Set(calls.filter((c) => c.poolId === pool.id).map((c) => c.id));
   const priorQuotes: Quote[] = all("quotes").filter((q) => poolCallIds.has(q.callId));
   const instruction = buildInstruction({ vendor, pool, members: negotiating, evidence, priorQuotes, now: now() });
+  if (fromRunner && !readRun()?.running) return reply(409, { error: "The negotiation run was stopped before placing the next call." });
   const header =
     vmode === "ai"
       ? `[want-it note] vendor_mode=ai: a Dial AI agent answered as ${vendor.name} (test vendor persona applied to the vendor number). Round ${sequence}.`
@@ -240,6 +241,10 @@ function readRun(): RunState | null {
 }
 const writeRun = (r: RunState) => kvSet(RUN_KEY, JSON.stringify(r));
 
+export function negotiationInProgress(): boolean {
+  return !!g.__negotiateLock || !!readRun()?.running || all("calls").some((c) => !isDone(c));
+}
+
 export type VendorProgress = {
   vendorId: string;
   name: string;
@@ -303,7 +308,7 @@ export function runView(): RunView {
       source: last?.source ?? null,
       round: run?.parallel ? (run.round2StartedAt && last && last.startedAt >= run.round2StartedAt ? 2 : 1) : null,
       error: state === "no_recording" ? `No recorded call for ${v?.name ?? id}; nothing was fabricated. Run in live mode to get a real quote.` : (last?.error ?? null),
-      quote: q ? { tiers: q.tiers, perAccountFeeCents: q.perAccountFeeCents, conditions: q.conditions, allInPerSeatCents: effectiveAllIn(q, members)?.allInPerSeatCents ?? null } : null,
+      quote: q ? { tiers: q.tiers, perAccountFeeCents: q.perAccountFeeCents, conditions: q.conditions, allInPerSeatCents: effectiveAllIn(q, members, now())?.allInPerSeatCents ?? null } : null,
     };
   });
   const bestQ = bestEffectiveQuote(poolQuotes, members, { now: now() });
@@ -324,10 +329,12 @@ export function runView(): RunView {
 }
 
 async function tick(): Promise<void> {
-  const run = readRun();
+  let run = readRun();
   if (!run || !run.running) return;
 
   await refreshActiveCalls({ waitMs: 1500 }); // poll Dial + extract quotes for in-flight calls
+  run = readRun();
+  if (!run?.running) return;
 
   // A call whose transcript exists but whose extraction failed gets ONE automatic retry, then counts as failed.
   for (const c of all("calls")) {
@@ -335,6 +342,8 @@ async function tick(): Promise<void> {
       run.extractionRetried.push(c.id);
       writeRun(run);
       await refreshCall(c.id, { retryExtraction: true });
+      run = readRun();
+      if (!run?.running) return;
     }
   }
 
@@ -395,6 +404,7 @@ export async function startRun(mode: NegotiateMode, opts: { parallel?: boolean; 
     await tickRunner();
     return reply(200, { alreadyRunning: true, ...runView() });
   }
+  if (g.__negotiateLock) return reply(409, { error: "The previous negotiation action is still finishing. Try again when it completes." });
   if (mode === "live" && !parallel) {
     const cfg = liveConfigError(NEGOTIATION_ORDER);
     if (cfg) return reply(400, { error: cfg });
@@ -440,6 +450,7 @@ async function placeLaneCalls(lanes: LaneConfig[], round: 1 | 2): Promise<Negoti
   try { evidence = await getDemandEvidence(pool.category); } catch { evidence = null; }
   evidence ??= { source: "unavailable" as const, queryText: "", ranAt: null, interestedBuyers90d: null, abandonedOverPrice90d: null, medianMaxPricePerSeatCents: null, isSyntheticHistory: true, summary: "Keewano unavailable." };
 
+  if (!readRun()?.running) return lanes.map(() => reply(409, { error: "Stopped by user" }));
   const calls = all("calls");
   const poolCallIds = new Set(calls.filter((c) => c.poolId === pool.id).map((c) => c.id));
   const priorQuotes: Quote[] = round === 1 ? [] : all("quotes").filter((q) => poolCallIds.has(q.callId)); // round 1: nothing known yet, nothing cited
@@ -455,6 +466,7 @@ async function placeLaneCalls(lanes: LaneConfig[], round: 1 | 2): Promise<Negoti
 
   return Promise.all(
     tasks.map(async ({ lane, vendor, sequence }): Promise<NegotiateResult> => {
+      if (!readRun()?.running) return reply(409, { error: "Stopped by user" });
       if (!vendor) return reply(404, { error: `Unknown vendor "${lane.vendorId}".` });
       const callId = newId("call");
       const instruction = `${buildInstruction({ vendor, pool, members, evidence, priorQuotes, now: now() })}\n\n${round === 1 ? ROUND1_NOTE : ROUND2_NOTE}`;
@@ -465,6 +477,7 @@ async function placeLaneCalls(lanes: LaneConfig[], round: 1 | 2): Promise<Negoti
       const persona = personaFor(vendor.id);
       if (!persona) return reply(500, { call: failed(`No vendor persona defined for ${vendor.name}`), error: `No vendor persona defined for ${vendor.name}` });
       const patched = await updateNumber(lane.vendorNumberId, { inboundInstruction: persona.instruction() });
+      if (!readRun()?.running) return reply(409, { error: "Stopped by user" });
       if (!patched.ok) {
         const msg = `Could not set the ${vendor.name} persona on its vendor number: ${patched.error}. No call was placed.`;
         return reply(502, { error: msg, call: failed(msg) });

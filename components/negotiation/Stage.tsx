@@ -193,7 +193,7 @@ export default function Stage({ lanes, facts, evidence, now, windowText, phase, 
           </p>
           {phase === "finished" && bestLane && (
             <p className="m-0 mt-3 text-[14px] font-medium" style={{ color: C.greenInk }}>
-              Best deal: {bestLane.vendor.name}. Applied automatically to every buyer under their max price.
+              Best eligible offer: {bestLane.vendor.name}. Settlement checks each buyer&apos;s cap and the final vendor volume.
             </p>
           )}
         </div>
@@ -353,7 +353,7 @@ export default function Stage({ lanes, facts, evidence, now, windowText, phase, 
         <div className="min-w-0">
           <p className="m-0 text-[13px]" style={{ color: C.muted }}>
             {settle.settled
-              ? "Pool settled. Each startup has its final price and its own account link."
+              ? "Pool settled. Final prices and cancellations are saved. Buyers with deals have test account links."
               : phase === "finished" && bestCents != null
                 ? `Settling applies ${usdSeat(bestCents)} to every pooled startup whose price cap allows it.`
                 : "Settle is available when the last call ends."}{" "}

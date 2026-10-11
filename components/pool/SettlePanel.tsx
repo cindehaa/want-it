@@ -6,6 +6,7 @@ import { postJson } from "./api";
 import { usd, usdSeat } from "./format";
 import type { Phase } from "./Story";
 import { Spinner } from "./ui";
+import { listPriceFor } from "@/lib/vendors";
 
 function Outcome({ value, label, sub }: { value: string; label: string; sub?: string }) {
   return (
@@ -24,7 +25,7 @@ export default function SettlePanel({ view, phase, onChanged }: { view: PoolView
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const busyCall = view.calls.some((c) => c.status === "queued" || c.status === "in_progress");
+  const busyCall = view.calls.some((c) => c.status !== "extracted" && c.status !== "failed");
   const canSettle = view.calls.length > 0 || view.quotes.length > 0;
   const primary = phase === "settle";
 
@@ -58,7 +59,7 @@ export default function SettlePanel({ view, phase, onChanged }: { view: PoolView
         </button>
         <p className="max-w-[56ch] text-[13px] leading-snug text-muted">
           {primary
-            ? "Applies the best quote to every buyer. Anyone whose max price is below it is canceled and their card hold is released."
+            ? "Checks each buyer's cap, offer expiry, and final vendor volume. Orders without an affordable valid price are canceled and their hold is released."
             : "Available after the agent has called a vendor."}
         </p>
       </div>
@@ -74,20 +75,20 @@ export default function SettlePanel({ view, phase, onChanged }: { view: PoolView
 function SettledOutcome({ view }: { view: PoolView }) {
   const members = new Set(view.pool.memberOrderIds);
   const orders = view.orders.filter((o) => members.has(o.id));
-  const catVendors = view.vendors.filter((v) => v.category === view.pool.category);
-  const listCents = catVendors.length ? Math.min(...catVendors.map((v) => v.listPricePerSeatCents)) : 3000;
 
   const canceled = orders.filter((o) => o.status === "canceled_over_max").length;
   const paying = orders.filter((o) => o.finalPricePerSeatCents != null && o.status !== "canceled_over_max" && o.status !== "canceled_by_buyer");
-  const applied = paying.filter((o) => (o.finalPricePerSeatCents as number) < listCents).length;
+  const applied = paying.filter((o) => (o.finalPricePerSeatCents as number) < listPriceFor(o.category, o.preferredVendorId)).length;
   const atList = paying.length - applied;
   const seats = paying.reduce((s, o) => s + o.seats, 0);
+  const baseline = paying.reduce((s, o) => s + listPriceFor(o.category, o.preferredVendorId) * o.seats, 0);
+  const listCents = seats > 0 ? baseline / seats : listPriceFor(view.pool.category, null);
   const avgCents = seats > 0 ? paying.reduce((s, o) => s + (o.finalPricePerSeatCents as number) * o.seats, 0) / seats : null;
   const pct = avgCents != null && listCents > 0 ? Math.round((1 - avgCents / listCents) * 100) : null;
 
   return (
     <div className="mt-6 border-t border-line pt-5" role="status">
-      <p className="text-[15px] font-semibold">Pool settled. Cards are charged at the final price (simulated).</p>
+      <p className="text-[15px] font-semibold">Pool settled. Final prices are saved. Payments and account links are simulated.</p>
       <div className="mt-4 grid grid-cols-1 gap-x-10 gap-y-5 sm:grid-cols-3">
         <Outcome value={String(applied)} label={applied === 1 ? "deal applied" : "deals applied"} sub={atList > 0 ? `${atList} at list price` : "at the group price"} />
         <Outcome

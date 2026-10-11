@@ -42,15 +42,15 @@ export type Order = z.infer<typeof Order>;
 
 export const CreateOrderInput = z.object({
   idempotencyKey: z.string().min(8),
-  buyerName: z.string().min(1),
+  buyerName: z.string().trim().min(1),
   category: Category,
   seats: z.number().int().min(1).max(500),
   maxPricePerSeatCents: z.number().int().positive().nullable(),
   preferredVendorId: z.string().nullable(),
   city: z.string().default("San Francisco"),
-  lat: z.number().default(37.7749),
-  lng: z.number().default(-122.4194),
-  deadline: z.string().optional(), // ISO; default = pool window close + 7d
+  lat: z.number().min(-90).max(90).default(37.7749),
+  lng: z.number().min(-180).max(180).default(-122.4194),
+  deadline: z.string().datetime({ offset: true }).optional(), // default = pool window close + 7d
 });
 export type CreateOrderInput = z.infer<typeof CreateOrderInput>;
 
