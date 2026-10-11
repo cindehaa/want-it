@@ -107,8 +107,7 @@ async function startNextCall({ mode, vendorId, fromRunner = false }: StartOpts):
     if (!vendor) return reply(409, { error: `All ${NEGOTIATION_ORDER.length} vendors have already been called (quote, no quote, or extraction failed). Pass { "vendorId": "..." } to call one again.` });
   }
 
-  // Sequence = the vendor's slot in the round (1 = Certly ... 5 = ComplyKit). A retry after a failed call without a
-  // transcript keeps the slot; an explicit repeat call to a vendor that already has a real call gets the next free number.
+  // Retries get a new sequence so every call keeps its own place in the history.
   const maxSeq = calls.reduce((m, c) => Math.max(m, c.sequence), 0);
   const sequence = maxSeq + 1;
 
@@ -146,7 +145,7 @@ async function startNextCall({ mode, vendorId, fromRunner = false }: StartOpts):
       sequence,
       dialCallId: recording.dialCallId,
       vendorDialCallId: null,
-      audio: { ...EMPTY_CALL_AUDIO, recordingUrl: `/api/calls/${callId}/audio` },
+      audio: { ...EMPTY_CALL_AUDIO, recordingUrl: `/recordings/${vendor.id}.m4a` },
       status: "transcribed",
       source: "recorded_replay",
       recordedAt: recording.recordedAt,
