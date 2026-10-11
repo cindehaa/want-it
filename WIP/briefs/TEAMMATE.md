@@ -1,6 +1,39 @@
 # Brief T — Keewano demand evidence, benchmark, demo script
 
-Paste this whole file into a fresh Claude Code session in your own clone of `github.com/cindehaa/want-it`. Read `SPEC.md` first (5 min). Hard deadline: everything merged by **3:15 PM PT**; freeze 3:45; recording 4:00.
+## ▶ How to start (human)
+1. `git clone https://github.com/cindehaa/want-it && cd want-it && pnpm install`
+2. Do **T1 (accounts)** below yourself right away — it needs a browser, email OTP and phone verification.
+3. Open Claude Code in the repo and paste the prompt below.
+
+## ▶ Prompt to paste into your Claude Code agent
+```
+You are the Teammate (owner "T") on the want-it hackathon project. Hard deadlines (PT):
+your branch pushed by 3:15 PM, freeze 3:45, recording 4:00. Check the clock with `date` first.
+
+1. Read, in order: SPEC.md, WIP/briefs/TEAMMATE.md (your brief — follow it exactly),
+   WIP/GRAPH.md (protocol + your rows T2–T5), WIP/LOG.md, lib/contracts.ts
+   (DemandEvent, DemandEvidence, Benchmark), lib/keewano/index.ts (stub you implement;
+   do not change the exported function signatures).
+2. `git switch -c teammate`. Edit ONLY: lib/keewano/**, scripts/keewano/**,
+   data/benchmark.json, demo/**. Never edit lib/contracts.ts or anything else — if you
+   need a contract change, append a line to WIP/LOG.md and keep going.
+3. Keys come from .env.local (KEEWANO_EVENT_KEY, KEEWANO_PAT). Never commit keys.
+   If keys aren't there yet, build against the docs and ask me (the human) for them.
+4. Work tasks in this order: T2 (event types + synthetic 90-day backfill — must be
+   ingested by 2:45 because Keewano has ~5 min ingest→query latency), T4 (benchmark.json),
+   T3 (live query → getDemandEvidence with cached/unavailable fallbacks), T5 (demo/SCRIPT.md).
+5. Once at start: `git worktree add ../want-it-main main` (a second checkout of main used
+   ONLY for WIP/ status edits). After each task: commit on `teammate` and push the branch;
+   then in ../want-it-main: `git pull --rebase`, update your row's Status in WIP/GRAPH.md,
+   append a timestamped line to WIP/LOG.md, commit `wip: T<n> <status>`, `git push`.
+6. Never fabricate Keewano results. Label synthetic history as synthetic. Verify with
+   `pnpm tsx scripts/keewano/check.ts` and paste its output into the handoff.
+7. Finish with the handoff in WIP/LOG.md exactly as the "Handoff" section of the brief says.
+```
+
+Read `SPEC.md` first (5 min). Hard deadline: everything merged by **3:15 PM PT**; freeze 3:45; recording 4:00.
+
+**Current repo state (2:05 PM):** L0 is done on `main` — Next.js app, `lib/contracts.ts`, `lib/db`, `lib/pool`, `lib/settle`, and the stub `lib/keewano/index.ts` (`recordEvent(event: DemandEvent)` and `getDemandEvidence(category): Promise<DemandEvidence>`, both must never throw). Lead's agents are building the UI, order APIs and Dial calls in parallel; the order routes already call `recordEvent` on `order_placed`, `max_price_stated` and `order_canceled`.
 
 ## Why this exists
 Our product negotiates group prices for startups. The vendor only agrees if the pooled buyers are **new customers it's currently losing**. Keewano is where we prove that: a live query over demand history ("how many startups wanted SOC 2 software in 90 days, how many abandoned over price, what max price would they accept?"). That number goes into the AI's phone-call script and onto the screen. Keewano's prize requires the query to be **load-bearing** (it changes what the app does) and run **live** in the demo.
