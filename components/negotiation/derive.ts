@@ -2,6 +2,7 @@
 // tierPrice = lowest price among tiers whose minSeats <= pool seats; effective = tier + perAccountFee / seats-per-buyer.
 import benchmark from "@/data/benchmark.json";
 import type { Call, PoolView, Quote, Vendor } from "@/lib/contracts";
+export { callMinutes } from "@/lib/dial/duration";
 
 export type RunState = {
   running: boolean;
@@ -147,15 +148,6 @@ export function ratchetSeries(lanes: Lane[]): { points: ChartPoint[]; lowestList
     points.push({ label: l.vendor.name, best: best / 100, offer: offer == null ? null : offer / 100 });
   }
   return { points, lowestList };
-}
-
-/** Minutes the agent spent on a call: wall clock when both timestamps exist, else the transcript length. */
-export function callMinutes(c: Call, nowIso: string): number {
-  const start = new Date(c.startedAt).getTime();
-  const end = c.endedAt ? new Date(c.endedAt).getTime() : c.status === "in_progress" || c.status === "queued" ? new Date(nowIso).getTime() : NaN;
-  const wall = Number.isFinite(start) && Number.isFinite(end) ? (end - start) / 60000 : 0;
-  const lastTurn = c.transcriptTurns.reduce((m, t) => Math.max(m, t.startMs), 0) / 60000;
-  return Math.max(wall, lastTurn, 0);
 }
 
 const HUMAN_STEP_IDS = ["contact_sales", "sales_call", "negotiate"] as const;
