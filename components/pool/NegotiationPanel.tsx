@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Call, PoolView, Quote } from "@/lib/contracts";
-import { postJson } from "./api";
+import type { PrivatePolicy } from "@/lib/dial/vendorPersonas";
+import { getJson, postJson } from "./api";
 import { fmtDate, fmtDateTime, fmtMmSs, usdSeat } from "./format";
 import { Badge, Dot, Spinner } from "./ui";
 
@@ -21,10 +22,40 @@ function isAgent(speaker: string): boolean {
 
 type Pending = null | "next" | "replay" | "settle";
 
+type VendorMode = "ai" | "human";
+type PersonaView = { vendorId: string; displayName: string; privatePolicy: PrivatePolicy };
+type PersonasPayload = { vendorMode: VendorMode; personas: PersonaView[] };
+
+function parsePersonas(v: unknown): PersonasPayload | null {
+  const o = v as Partial<PersonasPayload> | null;
+  if (!o || typeof o !== "object" || !Array.isArray(o.personas)) return null;
+  const personas = o.personas.filter((p) => !!p && typeof p.vendorId === "string" && !!p.privatePolicy);
+  return { vendorMode: o.vendorMode === "human" ? "human" : "ai", personas };
+}
+
+/** The first line of Call.instruction states the vendor mode ("vendor_mode=ai" | "vendor_mode=human"). */
+function callVendorMode(call: Call): VendorMode | null {
+  const m = /vendor_mode=(ai|human)/.exec(call.instruction.split("\n", 1)[0] ?? "");
+  return m ? (m[1] as VendorMode) : null;
+}
+
 export default function NegotiationPanel({ view, onChanged }: { view: PoolView; onChanged: () => void }) {
   const [pending, setPending] = useState<Pending>(null);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState<Record<string, boolean>>({});
+  const [personas, setPersonas] = useState<PersonasPayload | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getJson("/api/vendors/personas").then((res) => {
+      if (cancelled || !res.ok) return;
+      const parsed = parsePersonas(res.data);
+      if (parsed) setPersonas(parsed);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const calls = [...view.calls].sort((a, b) => a.sequence - b.sequence);
   const latestId = calls[calls.length - 1]?.id;
@@ -100,9 +131,18 @@ export default function NegotiationPanel({ view, onChanged }: { view: PoolView; 
               quote={view.quotes.find((q) => q.callId === c.id)}
               expanded={open[c.id] ?? c.id === latestId}
               onToggle={() => setOpen((o) => ({ ...o, [c.id]: !(o[c.id] ?? c.id === latestId) }))}
+              onChanged={onChanged}
             />
           ))}
         </ol>
+      )}
+
+      {personas && personas.personas.length > 0 && (
+        <div className="mt-4 space-y-2 border-t border-line pt-3">
+          {personas.personas.map((p) => (
+            <PolicyDisclosure key={p.vendorId} persona={p} mode={personas.vendorMode} />
+          ))}
+        </div>
       )}
     </section>
   );
@@ -114,14 +154,19 @@ function CallBlock({
   quote,
   expanded,
   onToggle,
+  onChanged,
 }: {
   call: Call;
   vendorName: string;
   quote: Quote | undefined;
   expanded: boolean;
   onToggle: () => void;
+  onChanged: () => void;
 }) {
   const st = STATUS[call.status];
+  const mode = callVendorMode(call);
+  const extractionFailed = call.status === "failed" && !!call.error?.startsWith("Extraction failed");
+  const canRecord = call.source === "live" && (call.status === "extracted" || (call.status === "transcribed" && call.transcriptTurns.length > 0));
   const scroller = useRef<HTMLDivElement>(null);
   const turns = call.transcriptTurns.length;
   useEffect(() => {
@@ -134,7 +179,7 @@ function CallBlock({
         <span className="text-[13px] font-semibold">
           Call {call.sequence}: {vendorName}
         </span>
-        <Badge tone="neutral">test vendor</Badge>
+        <Badge tone="neutral">{mode === "ai" ? "Simulated vendor · AI agent" : mode === "human" ? "Test vendor · human" : "test vendor"}</Badge>
         <span className="ml-auto inline-flex items-center gap-1.5">
           {call.source === "live" ? (
             <Badge tone="ink">Live call</Badge>
@@ -150,9 +195,10 @@ function CallBlock({
 
       <div className="px-3 py-2.5">
         {call.status === "failed" && (
-          <p role="alert" className="mb-2 break-words rounded-md bg-danger-soft px-2.5 py-1.5 text-xs text-danger">
-            Call failed{call.error ? `: ${call.error}` : "."} No quote from this call.
-          </p>
+          <div role="alert" className="mb-2 break-words rounded-md bg-danger-soft px-2.5 py-1.5 text-xs text-danger">
+            {extractionFailed ? call.error : <>Call failed{call.error ? `: ${call.error}` : "."}</>} No quote from this call.
+            {extractionFailed && <RetryExtraction callId={call.id} onChanged={onChanged} />}
+          </div>
         )}
 
         {turns > 0 ? (
@@ -192,8 +238,161 @@ function CallBlock({
         )}
 
         {quote && <QuoteCard quote={quote} vendorName={vendorName} />}
+
+        {canRecord && <SaveRecording callId={call.id} />}
       </div>
     </li>
+  );
+}
+
+function SaveRecording({ callId }: { callId: string }) {
+  const [state, setState] = useState<"idle" | "saving" | "saved">("idle");
+  const [error, setError] = useState<string | null>(null);
+
+  async function save() {
+    setState("saving");
+    setError(null);
+    const res = await postJson(`/api/calls/${encodeURIComponent(callId)}/record`, {});
+    if (res.ok) {
+      setState("saved");
+    } else {
+      setState("idle");
+      setError(res.error);
+    }
+  }
+
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
+      {state === "saved" ? (
+        <span role="status" className="text-xs font-medium text-accent-strong">
+          Saved for replay &#10003;
+        </span>
+      ) : (
+        <button
+          type="button"
+          onClick={save}
+          disabled={state === "saving"}
+          className="inline-flex h-7 items-center gap-1.5 rounded-md border border-line bg-white px-2.5 text-xs font-medium text-muted transition-colors hover:bg-canvas hover:text-ink disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {state === "saving" && <Spinner />}
+          Save as fallback recording
+        </button>
+      )}
+      {error && (
+        <span role="alert" className="break-words text-xs text-danger">
+          {error}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function RetryExtraction({ callId, onChanged }: { callId: string; onChanged: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function retry() {
+    setBusy(true);
+    setError(null);
+    const res = await getJson(`/api/calls/${encodeURIComponent(callId)}?retry=1`);
+    setBusy(false);
+    if (!res.ok) {
+      setError(res.error);
+      return;
+    }
+    const call = (res.data as { call?: { status?: string; error?: string | null } } | null)?.call;
+    if (call?.status === "failed" && call.error) setError(call.error);
+    onChanged();
+  }
+
+  return (
+    <>
+      {" "}
+      <button
+        type="button"
+        onClick={retry}
+        disabled={busy}
+        className="inline-flex items-center gap-1.5 font-medium underline underline-offset-2 hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {busy && <Spinner />}
+        Retry extraction
+      </button>
+      {error && <span className="mt-1 block">{error}</span>}
+    </>
+  );
+}
+
+function TierList({ tiers }: { tiers: PrivatePolicy["openingTiers"] }) {
+  return (
+    <ul className="tabular space-y-0.5">
+      {[...tiers]
+        .sort((a, b) => a.minSeats - b.minSeats)
+        .map((t) => (
+          <li key={t.minSeats}>
+            {usdSeat(t.pricePerSeatCents)} <span className="text-muted">at {t.minSeats}+ seats</span>
+          </li>
+        ))}
+    </ul>
+  );
+}
+
+function PolicyDisclosure({ persona, mode }: { persona: PersonaView; mode: VendorMode }) {
+  const [open, setOpen] = useState(false);
+  const p = persona.privatePolicy;
+  const panelId = `policy-${persona.vendorId}`;
+
+  return (
+    <div className="rounded-md border border-line bg-canvas/40">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-2.5 py-1.5">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          aria-controls={panelId}
+          className="text-left text-xs text-muted hover:text-ink"
+        >
+          <span aria-hidden className="mr-1 inline-block w-2.5 text-faint">
+            {open ? "▾" : "▸"}
+          </span>
+          <span className="font-medium text-ink">{persona.displayName}</span>: Vendor&rsquo;s private pricing policy (hidden from our buyer agent)
+        </button>
+        <span className="ml-auto">
+          <Badge tone="neutral">{mode === "ai" ? "Simulated vendor · AI agent" : "Test vendor · human"}</Badge>
+        </span>
+      </div>
+
+      {open && (
+        <div id={panelId} className="border-t border-line px-2.5 py-2">
+          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-[12px]">
+            <dt className="text-muted">List price</dt>
+            <dd className="tabular text-right">{usdSeat(p.listPricePerSeatCents)} per seat</dd>
+            <dt className="text-muted">Opening tiers</dt>
+            <dd className="text-right">
+              <TierList tiers={p.openingTiers} />
+            </dd>
+            <dt className="text-muted">Floor tiers</dt>
+            <dd className="text-right">
+              <TierList tiers={p.floorTiers} />
+            </dd>
+            <dt className="text-muted">Per-account fee</dt>
+            <dd className="text-right">
+              <span className="tabular">{p.perAccountFeeCents > 0 ? usdSeat(p.perAccountFeeCents) : "None"}</span>
+              {p.perAccountFeeCents > 0 && p.perAccountFeeNote && <span className="mt-0.5 block text-[11.5px] leading-snug text-muted">{p.perAccountFeeNote}</span>}
+            </dd>
+          </dl>
+          {p.concessions.length > 0 && (
+            <div className="mt-2 border-t border-line pt-2">
+              <p className="text-[12px] text-muted">Concessions</p>
+              <ul className="mt-1 list-disc space-y-0.5 pl-4 text-[12px] leading-snug text-ink">
+                {p.concessions.map((c, i) => (
+                  <li key={i}>{c}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 

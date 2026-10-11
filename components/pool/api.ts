@@ -18,13 +18,9 @@ function messageFrom(data: unknown, fallback: string): string {
   return fallback;
 }
 
-export async function postJson(path: string, body: unknown): Promise<ApiResult> {
+async function requestJson(path: string, init?: RequestInit): Promise<ApiResult> {
   try {
-    const res = await fetch(path, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
-    });
+    const res = await fetch(path, init);
     const text = await res.text();
     let data: unknown = null;
     try {
@@ -37,4 +33,16 @@ export async function postJson(path: string, body: unknown): Promise<ApiResult> 
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Network error" };
   }
+}
+
+export function postJson(path: string, body: unknown): Promise<ApiResult> {
+  return requestJson(path, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export function getJson(path: string): Promise<ApiResult> {
+  return requestJson(path, { cache: "no-store" });
 }
