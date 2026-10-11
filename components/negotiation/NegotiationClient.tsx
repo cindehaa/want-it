@@ -3,17 +3,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { DemandEvidence, PoolView } from "@/lib/contracts";
 import { deleteJson, getJson, postJson } from "@/components/pool/api";
+import Link from "next/link";
 import { fmtAgo, fmtRemaining, usdSeat } from "@/components/pool/format";
-import { Badge, Spinner } from "@/components/pool/ui";
-import { buildLanes, parseRun, poolFacts, rankLanes, type Lane, type RunState } from "./derive";
+import CallWall, { isLive } from "./CallWall";
+import { buildLanes, parseRun, poolFacts, rankLanes, type RunState } from "./derive";
 import { buildNegotiationFixture, type NegotiationFixtureStage } from "./fixture";
 import Leaderboard from "./Leaderboard";
 import { buildPlaybackPlan, lanesAt, PlaybackBar, playableCount, totalMs, useCallAudio, usePlaybackClock } from "./ParallelPlayback";
 import RatchetChart from "./RatchetChart";
-import Stage, { type StagePhase } from "./Stage";
 import RunControls, { type RunMode } from "./RunControls";
 import TimePanel from "./TimePanel";
-import VendorLane, { type PersonaView, type VendorMode } from "./VendorLane";
+import { PolicyDisclosure, type PersonaView, type VendorMode } from "./VendorLane";
 
 const POOL_POLL_MS = 1500;
 const RUN_POLL_MS = 2000;
@@ -75,7 +75,7 @@ export default function NegotiationClient() {
   const [stopping, setStopping] = useState(false);
   const [runChecked, setRunChecked] = useState(false);
   const [playbackOpen, setPlaybackOpen] = useState(false);
-  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [joinedId, setJoinedId] = useState<string | null>(null);
   const [settleBusy, setSettleBusy] = useState(false);
   const [settleError, setSettleError] = useState<string | null>(null);
   const everLive = useRef(false);
@@ -168,12 +168,12 @@ export default function NegotiationClient() {
   const clock = usePlaybackClock(totalMs(plan));
   // Real call audio for the lane in focus (off until the viewer turns it on; browsers need a click to play sound).
   const [soundOn, setSoundOn] = useState(false);
-  const [focusedId, setFocusedId] = useState<string | null>(null);
   const planEndMs = Object.fromEntries(plan.map((p) => [p.vendorId, p.endMs]));
-  useCallAudio(plan.filter((p) => p.call).map((p) => p.vendorId), clock.t, clock.playing, clock.speed, soundOn, focusedId, planEndMs);
+  useCallAudio(plan.filter((p) => p.call).map((p) => p.vendorId), clock.t, clock.playing, clock.speed, soundOn, joinedId, planEndMs);
 
   function startPlayback() {
     setPlaybackOpen(true);
+    setJoinedId(null);
     clock.restart();
   }
   const startPlaybackRef = useRef(startPlayback);
@@ -221,6 +221,7 @@ export default function NegotiationClient() {
     setPending(mode);
     setRunError(null);
     setPlaybackOpen(false);
+    setJoinedId(null);
     clock.stop();
     const res = await postJson("/api/pool/negotiate-all", mode === "parallel" ? { mode: "live", parallel: true } : { mode });
     setPending(null);
@@ -246,9 +247,9 @@ export default function NegotiationClient() {
 
   if (!view) {
     return (
-      <main className="mx-auto max-w-[1400px] px-4 py-10 sm:px-6">
+      <main className="mx-auto w-full max-w-[1180px] px-4 py-10 sm:px-6">
         <p className="text-sm text-muted" role="status">
-          Loading the negotiation room…
+          Loading the negotiation room.
         </p>
       </main>
     );
@@ -263,63 +264,82 @@ export default function NegotiationClient() {
   const lanes = replaying ? lanesAt(view, liveLanes, plan, clock.t) : liveLanes;
   const ranked = rankLanes(lanes);
   const best = ranked[0]?.eligible ? ranked[0] : null;
-  const liveBest = rankLanes(liveLanes)[0]?.eligible ? rankLanes(liveLanes)[0] : null;
-  const firstWaiting = lanes.find((l) => l.status === "waiting");
-  const parallelRun = !!run?.parallel;
-  // The run/replay is over: show the best deal prominently (Stage header + footer).
-  const anyCalling = lanes.some((l) => l.status === "calling" || l.status === "transcribing");
-  const runFinished = !replaying && !running && !anyCalling && (!!run?.finishedAt || lanes.some((l) => l.eligible));
-  const showBest: Lane | null = replaying ? (clock.finished ? best : null) : runFinished ? liveBest : null;
-  const phase: StagePhase = replaying ? (clock.finished ? "finished" : "running") : running || anyCalling ? "running" : runFinished ? "finished" : "idle";
+  const liveRanked = rankLanes(liveLanes);
+  const liveBest = liveRanked[0]?.eligible ? liveRanked[0] : null;
+  const total = lanes.length;
+  const liveCount = lanes.filter(isLive).length;
+  const quoted = lanes.filter((l) => l.eligible).length;
+  const anyCalling = liveCount > 0;
+  // The run or replay is over.
+  const runFinished = replaying ? clock.finished : !running && !anyCalling && (!!run?.finishedAt || lanes.some((l) => l.eligible));
+  const started = replaying || running || lanes.some((l) => !!l.call);
+  const bestCents = best?.eff?.effectiveCents ?? null;
+  const lowestList = view.vendors.reduce((m, v) => Math.min(m, v.listPricePerSeatCents), Infinity);
+  const listRef = Number.isFinite(lowestList) ? lowestList : 0;
+  const deltaPct = bestCents != null && listRef > 0 ? Math.round((1 - bestCents / listRef) * 100) : 0;
+  const statusLine = runFinished
+    ? `All calls ended, ${quoted} ${quoted === 1 ? "quote" : "quotes"} from ${total} vendors`
+    : replaying && !clock.playing
+      ? "Replay paused"
+      : started
+        ? `${liveCount === 0 ? "No call" : liveCount === 1 ? "1 call" : `${liveCount} calls`} live, ${quoted} quoted`
+        : "Waiting for the marketplace to dispatch the agents";
   const closesInMs = new Date(view.pool.windowClosesAt).getTime() - new Date(view.now).getTime();
   const closed = view.pool.status === "settled" || closesInMs <= 0;
   const settled = view.pool.status === "settled";
-  const settleReady = source === "live" && !running && !replaying && !settled && !view.calls.some((c) => c.status !== "extracted" && c.status !== "failed");
+  const settleReady =
+    source === "live" && !running && !replaying && !settled && runFinished && !!liveBest?.eff && !view.calls.some((c) => c.status !== "extracted" && c.status !== "failed");
   const replayEndMs = Object.fromEntries(plan.map((p) => [p.vendorId, p.endMs]));
+  const settleLabel = settled ? "Pool settled" : liveBest?.eff ? `Settle pool at ${usdSeat(liveBest.eff.effectiveCents)}` : "Settle pool";
 
   return (
-    <main className="mx-auto w-full max-w-[1180px] px-4 pb-14 pt-6 sm:px-6">
-      <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+    <main className="mx-auto flex w-full max-w-[1180px] flex-col gap-6 px-4 pb-10 pt-7 sm:px-6">
+      <section aria-label="Pool status" className="flex flex-wrap items-end justify-between gap-6">
         <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-[15px] font-semibold leading-tight tracking-tight">Behind the scenes: our agents negotiate for {facts.startups} startups</h1>
-            {source === "fixture" && (
-              <Badge tone="warn" title="The pool API is unreachable, so this is local sample data. No real calls were made.">
-                fixture data
-              </Badge>
-            )}
-            {source === "live" && stale && (
-              <Badge tone="danger" title="The last refresh failed. Showing the previous data.">
-                reconnecting
-              </Badge>
-            )}
-            {!replaying && <RunBadge run={run} lanes={lanes} />}
-          </div>
-          <p className="mt-0.5 text-[13px] text-muted">
-            The marketplace dispatches the agents automatically; buyers never start a negotiation.{" "}
-            {replaying
-              ? `Each of the ${lanes.length} vendors has its own phone line.`
-              : parallelRun
-                ? `Our agents phone all ${lanes.length} test vendors at once, one phone line each.`
-                : `Our agent phones ${lanes.length} test vendors, each call citing the best offer so far.`}
+          <p className="m-0 text-[13px] font-medium text-muted">
+            Best group price so far, SOC 2 seats
+            {source === "fixture" && <span title="The pool API is unreachable, so this is local sample data. No real calls were made.">. Sample data, no real calls</span>}
+            {source === "live" && stale && <span title="The last refresh failed. Showing the previous data.">. Reconnecting</span>}
+          </p>
+          <p className="m-0 mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1 leading-none">
+            <BestPrice cents={bestCents ?? listRef} />
+            <span className="text-[15px] text-muted">
+              {bestCents != null ? (
+                <>
+                  a seat. List from <span className="tabular line-through">{usdSeat(listRef)}</span>, {deltaPct}% below
+                </>
+              ) : (
+                <>a seat at list. No quote yet</>
+              )}
+            </span>
           </p>
         </div>
-        {showControls && (
-          <RunControls
-            running={running}
-            pending={pending}
-            error={runError ?? (run?.error === "Stopped by user" ? null : run?.error ?? null)}
-            parallelAvailable={run?.parallelAvailable === true}
-            canPlayback={canPlayback}
-            playbackOpen={replaying}
-            onRun={startRun}
-            onPlayback={startPlayback}
-            onStop={stopRun}
-            stopping={stopping}
-            settled={settled}
-          />
-        )}
-      </div>
+        <div className="flex min-w-0 flex-col items-end gap-2 text-right">
+          <p className="m-0 flex items-center justify-end gap-2 text-[15px] font-medium" aria-live="polite">
+            {anyCalling && (!replaying || clock.playing) && <span className="cw-live inline-block h-2 w-2 rounded-full bg-accent" aria-hidden />}
+            <span>{statusLine}</span>
+          </p>
+          <p className="tabular m-0 text-[13px] text-muted">
+            {facts.seats} seats from {facts.startups} startups.{" "}
+            {best?.eff ? `Every agent cites the offer in hand, ${usdSeat(best.eff.effectiveCents)} from ${best.vendor.name}.` : closed ? "Pooling window closed." : `Window closes in ${fmtRemaining(closesInMs)}.`}
+          </p>
+          {showControls && (
+            <RunControls
+              running={running}
+              pending={pending}
+              error={runError ?? (run?.error === "Stopped by user" ? null : run?.error ?? null)}
+              parallelAvailable={run?.parallelAvailable === true}
+              canPlayback={canPlayback}
+              playbackOpen={replaying}
+              onRun={startRun}
+              onPlayback={startPlayback}
+              onStop={stopRun}
+              stopping={stopping}
+              settled={settled}
+            />
+          )}
+        </div>
+      </section>
 
       {replaying && (
         <PlaybackBar
@@ -341,85 +361,97 @@ export default function NegotiationClient() {
         />
       )}
 
-      <div className="mt-6">
-        <Stage
-          lanes={lanes}
-          facts={facts}
-          evidence={view.evidence}
-          now={view.now}
-          windowText={closed ? "closed" : fmtRemaining(closesInMs)}
-          phase={phase}
-          replaying={replaying}
-          replayPlaying={clock.playing}
-          replayClockMs={clock.t}
-          replayEndMs={replayEndMs}
-          onFocusChange={setFocusedId}
-          parallel={parallelRun || replaying}
-          detailsOpen={detailsOpen}
-          onToggleDetails={() => setDetailsOpen((o) => !o)}
-          settle={{
-            disabled: !settleReady || settleBusy,
-            busy: settleBusy,
-            settled,
-            label: settled ? "Pool settled" : liveBest?.eff ? `Settle pool at ${usdSeat(liveBest.eff.effectiveCents)}` : "Settle pool",
-            error: settleError,
-            onClick: () => void settlePool(),
-          }}
-        />
-      </div>
+      <CallWall
+        lanes={lanes}
+        replaying={replaying}
+        replayClockMs={clock.t}
+        replayEndMs={replayEndMs}
+        running={running || (replaying && !clock.finished)}
+        bestCents={bestCents}
+        joinedId={joinedId}
+        onJoin={setJoinedId}
+      />
 
-      {detailsOpen && (
-      <div id="negotiation-details" className="mt-8 border-t border-line pt-6">
-      <h2 className="text-sm font-semibold">Details: transcripts, quotes, vendor policies</h2>
-      <dl className="mt-3 flex flex-wrap gap-x-7 gap-y-2">
-        <Fact value={String(facts.startups)} label="startups pooled" />
-        <Fact value={String(facts.seats)} label="seats in the pool" />
-        <Fact value={closed ? "Closed" : fmtRemaining(closesInMs)} label={closed ? "pooling window" : "until the window closes"} />
-      </dl>
-      <Leverage evidence={view.evidence} now={view.now} />
-      <section aria-label="Vendor calls" className="mt-6 grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3">
-        {lanes.map((l) => {
-          const planLane = replaying ? plan.find((p) => p.vendorId === l.vendor.id) : null;
-          const active = replaying ? !!planLane?.call && clock.playing && clock.t < planLane.endMs : l.status === "calling" || l.status === "transcribing";
-          const mode = (l.call && callVendorMode(l.call.instruction)) ?? personas?.vendorMode ?? "ai";
-          const hint =
-            running && l.status === "waiting"
-              ? parallelRun
-                ? "Dialing. All lines ring at the same time."
-                : firstWaiting?.vendor.id === l.vendor.id
-                  ? "Next up. The call starts when the current one ends."
-                  : "Waiting for earlier calls to finish."
-              : null;
-          return (
-            <VendorLane
-              key={`${replaying ? "pb" : "live"}-${l.vendor.id}`}
-              lane={l}
-              facts={facts}
-              persona={personas?.personas.find((p) => p.vendorId === l.vendor.id)}
-              mode={mode}
-              active={active}
-              runningHint={hint}
-              lineNumber={l.index + 1}
-              elapsedMs={replaying ? Math.min(clock.t, planLane?.endMs ?? 0) : null}
-              playback={replaying}
-              winner={!!showBest && showBest.vendor.id === l.vendor.id}
-            />
-          );
-        })}
-      </section>
+      <footer className="mt-auto flex flex-wrap items-center justify-between gap-4">
+        <div className="min-w-0">
+          <p className="m-0 text-[13px] text-muted">
+            {settled
+              ? "Pool settled. Final prices and cancellations are saved."
+              : runFinished && liveBest?.eff
+                ? `Settling applies ${usdSeat(liveBest.eff.effectiveCents)} to every pooled startup whose price cap allows it.`
+                : "Settle unlocks when every call has ended."}{" "}
+            <Link href="/pool" className="underline decoration-dotted underline-offset-2">
+              See the settlement on the marketplace
+            </Link>
+          </p>
+          {settleError && (
+            <p role="alert" className="mt-2 max-w-xl break-words rounded-md border border-danger/30 bg-danger-soft px-2.5 py-1.5 text-xs text-danger">
+              {settleError}
+            </p>
+          )}
+        </div>
+        <button
+          type="button"
+          disabled={!settleReady || settleBusy}
+          onClick={() => void settlePool()}
+          className="h-11 rounded-lg border-0 px-5 text-[14px] font-semibold text-white enabled:cursor-pointer enabled:bg-ink disabled:cursor-not-allowed disabled:bg-line disabled:text-muted"
+        >
+          {settleBusy ? "Settling" : settleLabel}
+        </button>
+      </footer>
 
-      <div className={`mt-4 grid gap-4 ${replaying ? "" : "lg:grid-cols-2"}`}>
-        <Leaderboard lanes={lanes} facts={facts} running={replaying ? !clock.finished : running} />
-        {!replaying && <RatchetChart lanes={lanes} />}
-      </div>
+      <p className="m-0 text-[12px] text-faint">All five are test vendors; calls are real Dial calls, one at a time.</p>
 
-      <div className="mt-4">
-        <TimePanel view={view} vendorCount={lanes.length} />
-      </div>
-
-      </div>
-      )}
+      <details className="border-t border-line pt-4">
+        <summary className="cursor-pointer text-[13px] font-medium text-accent-strong">Details: leaderboard, price after each call, time back, vendor policies</summary>
+        <div id="negotiation-details" className="mt-4">
+          <dl className="flex flex-wrap gap-x-7 gap-y-2">
+            <Fact value={String(facts.startups)} label="startups pooled" />
+            <Fact value={String(facts.seats)} label="seats in the pool" />
+            <Fact value={closed ? "Closed" : fmtRemaining(closesInMs)} label={closed ? "pooling window" : "until the window closes"} />
+          </dl>
+          <Leverage evidence={view.evidence} now={view.now} />
+          <div className={`mt-4 grid gap-4 ${replaying ? "" : "lg:grid-cols-2"}`}>
+            <Leaderboard lanes={lanes} facts={facts} running={replaying ? !clock.finished : running} />
+            {!replaying && <RatchetChart lanes={lanes} />}
+          </div>
+          <div className="mt-4">
+            <TimePanel view={view} vendorCount={lanes.length} />
+          </div>
+          {personas && personas.personas.length > 0 && (
+            <section aria-label="Vendor pricing policies" className="mt-4">
+              <h2 className="text-sm font-semibold">Each vendor&rsquo;s private pricing policy, hidden from our agent</h2>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {lanes.map((l) => {
+                  const persona = personas.personas.find((p) => p.vendorId === l.vendor.id);
+                  if (!persona) return null;
+                  const mode = (l.call && callVendorMode(l.call.instruction)) ?? personas.vendorMode ?? "ai";
+                  return <PolicyDisclosure key={l.vendor.id} persona={persona} mode={mode} vendorName={l.vendor.name} />;
+                })}
+              </div>
+            </section>
+          )}
+        </div>
+      </details>
     </main>
+  );
+}
+
+/** The 56px price. Flips only when the figure actually changes after first paint. */
+function BestPrice({ cents }: { cents: number }) {
+  const prev = useRef(cents);
+  const [flip, setFlip] = useState(false);
+  useEffect(() => {
+    if (prev.current === cents) return;
+    prev.current = cents;
+    setFlip(true);
+    const id = setTimeout(() => setFlip(false), 700);
+    return () => clearTimeout(id);
+  }, [cents]);
+  return (
+    <span className={`tabular text-[56px] font-semibold tracking-[-0.04em] text-ink ${flip ? "cw-price-new" : ""}`} data-testid="best-price">
+      {usdSeat(cents)}
+    </span>
   );
 }
 
@@ -432,40 +464,13 @@ function Fact({ value, label }: { value: string; label: string }) {
   );
 }
 
-function RunBadge({ run, lanes }: { run: RunState | null; lanes: Lane[] }) {
-  if (!run) return null;
-  if (run.running && run.parallel) {
-    const live = lanes.filter((l) => l.status === "calling" || l.status === "transcribing").length;
-    return (
-      <Badge tone="warn">
-        <Spinner />
-        Parallel{run.round === 2 ? ", round 2 callbacks" : ", round 1"}: {live} of {lanes.length} lines on a call
-      </Badge>
-    );
-  }
-  if (run.running) {
-    const current = lanes.find((l) => l.status === "calling" || l.status === "transcribing") ?? lanes.find((l) => l.status === "waiting");
-    return (
-      <Badge tone="warn">
-        <Spinner />
-        {run.mode === "replay" ? "Replaying" : "Running"}
-        {current ? `: ${current.vendor.name}, ${current.index + 1} of ${lanes.length}` : ""}
-      </Badge>
-    );
-  }
-  if (run.finishedAt) {
-    if (run.error) return <Badge tone="warn">{run.error === "Stopped by user" ? "Run stopped" : "Run failed"}</Badge>;
-    const got = lanes.filter((l) => l.eligible).length;
-    return <Badge tone="accent">Run finished: {got} of {lanes.length} quotes</Badge>;
-  }
-  return null;
-}
-
 function Leverage({ evidence, now }: { evidence: DemandEvidence; now: string }) {
   const unavailable = evidence.source === "unavailable" || evidence.abandonedOverPrice90d == null || evidence.interestedBuyers90d == null;
+  const provenance =
+    evidence.source === "keewano_live" ? "Keewano, live" : evidence.source === "keewano_cached" ? `Keewano, cached ${fmtAgo(evidence.ranAt, now)}` : "Keewano, unavailable";
   return (
-    <div className="mt-4 flex max-w-3xl flex-wrap items-center gap-x-2 gap-y-1.5 rounded-lg border border-accent/25 bg-accent-soft/60 px-3 py-2 text-[13px] leading-snug">
-      <span className="font-medium text-accent-strong">Leverage the agent cites:</span>
+    <div className="mt-4 max-w-3xl rounded-lg border border-accent/25 bg-accent-soft/60 px-3 py-2 text-[13px] leading-snug">
+      <span className="font-medium text-accent-strong">Leverage the agent cites: </span>
       {unavailable ? (
         <span className="text-muted">Keewano demand data is unavailable, so the agent negotiates without demand numbers.</span>
       ) : (
@@ -474,11 +479,10 @@ function Leverage({ evidence, now }: { evidence: DemandEvidence; now: string }) 
           <span className="tabular font-semibold">{evidence.interestedBuyers90d}</span> startups that looked at SOC 2 software walked away over price in the last 90 days.
         </span>
       )}
-      <span className="flex flex-wrap items-center gap-1.5">
-        <Badge tone="neutral">Keewano</Badge>
-        {evidence.source === "keewano_live" && <Badge tone="accent">Live</Badge>}
-        {evidence.source === "keewano_cached" && <Badge tone="warn">Cached, {fmtAgo(evidence.ranAt, now)}</Badge>}
-        {evidence.isSyntheticHistory && <Badge tone="neutral">Synthetic history</Badge>}
+      <span className="text-muted">
+        {" "}
+        {provenance}
+        {evidence.isSyntheticHistory && !unavailable ? ", synthetic history" : ""}.
       </span>
     </div>
   );

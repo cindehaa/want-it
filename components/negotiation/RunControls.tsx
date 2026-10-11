@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Badge, Spinner } from "@/components/pool/ui";
+import { Spinner } from "@/components/pool/ui";
 
 export type RunMode = "live" | "replay" | "parallel";
 
@@ -48,11 +48,11 @@ export default function RunControls({
   const busy = running || pending !== null || liveBusy;
   const startDisabled = busy || settled;
   const btn =
-    "inline-flex h-7 items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 text-xs font-medium text-ink transition-colors hover:bg-canvas disabled:cursor-not-allowed disabled:opacity-50";
+    "inline-flex h-6 items-center gap-1 rounded border border-line bg-surface px-2 text-[11px] font-medium text-ink transition-colors hover:bg-canvas disabled:cursor-not-allowed disabled:opacity-50";
   return (
-    <div className="flex min-w-0 flex-col gap-1.5 lg:items-end" aria-label="Operator controls">
-      <div className="flex flex-wrap items-center gap-1.5 lg:justify-end">
-        <span className="text-[11px] font-medium uppercase tracking-wide text-faint">Operator controls</span>
+    <div className="flex min-w-0 flex-col items-end gap-1" aria-label="Operator controls">
+      <div className="flex flex-wrap items-center justify-end gap-1">
+        <span className="text-[11px] text-faint">Operator:</span>
         <button type="button" onClick={onPlayback} disabled={!canPlayback || busy} className={btn} title={canPlayback ? undefined : "No finished calls with transcripts to play yet."}>
           {playbackOpen ? "Replay again" : "Play recorded calls side by side"}
         </button>
@@ -76,10 +76,7 @@ export default function RunControls({
         )}
         {running && <button type="button" onClick={onStop} disabled={stopping} className={btn}>{stopping ? "Stopping..." : "Stop after current calls"}</button>}
       </div>
-      <p className="text-[11px] leading-snug text-faint lg:text-right">
-        Live calls are real Dial phone calls (~3 min each).
-        {running && <Badge tone="warn"> running</Badge>}
-      </p>
+      <p className="text-[11px] leading-snug text-faint">Live calls are real Dial phone calls, about 3 min each.{running ? " Running." : ""}</p>
       {liveErr && (
         <p role="alert" className="max-w-md break-words rounded-md border border-danger/30 bg-danger-soft px-2.5 py-1.5 text-xs text-danger">
           {liveErr}

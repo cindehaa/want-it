@@ -1,7 +1,6 @@
 "use client";
 
 import { usdSeat } from "@/components/pool/format";
-import { Badge } from "@/components/pool/ui";
 import type { Lane, PoolFacts } from "./derive";
 import { rankLanes } from "./derive";
 
@@ -58,7 +57,7 @@ export default function Leaderboard({ lanes, facts, running }: { lanes: Lane[]; 
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                     <span className={`text-[14px] font-semibold ${eff ? "" : "text-muted"}`}>{l.vendor.name}</span>
-                    {best && <Badge tone="accent">{final ? "Best deal" : "Best so far"}</Badge>}
+                    {best && <span className="text-[11.5px] font-medium text-accent-strong">{final ? "Best deal" : "Best so far"}</span>}
                   </div>
                   <p className="tabular mt-0.5 truncate text-[11.5px] text-muted">
                     {eff

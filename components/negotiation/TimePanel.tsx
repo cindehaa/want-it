@@ -2,7 +2,6 @@
 
 import type { PoolView } from "@/lib/contracts";
 import { fmtDuration } from "@/components/pool/format";
-import { Badge } from "@/components/pool/ui";
 import { callMinutes, humanBaseline } from "./derive";
 
 export default function TimePanel({ view, vendorCount }: { view: PoolView; vendorCount: number }) {
@@ -20,9 +19,9 @@ export default function TimePanel({ view, vendorCount }: { view: PoolView; vendo
           Time back
         </h2>
         {base.isEstimate && (
-          <Badge tone="warn" title="Assumptions in data/benchmark.json, not a measured human baseline.">
-            estimate
-          </Badge>
+          <span className="text-xs text-muted" title="Assumptions in data/benchmark.json, not a measured human baseline.">
+            Estimate
+          </span>
         )}
       </div>
 
@@ -42,7 +41,7 @@ export default function TimePanel({ view, vendorCount }: { view: PoolView; vendo
             <span className="ml-2 text-base font-medium text-muted">of human time (estimate)</span>
           </p>
           <p className="tabular mt-1 text-xs leading-snug text-muted">
-            {startups} startups &times; {vendorCount} vendors &times; {base.perVendorMinutes} min
+            {startups} startups times {vendorCount} vendors times {base.perVendorMinutes} min
           </p>
         </div>
       </div>
