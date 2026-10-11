@@ -14,3 +14,4 @@ Format: `HH:MM [L|T] message`
 - 14:26 [L] Acceptance script merged (scripts/acceptance.ts): 142/142 pass. Settle now requires separateAccountsConfirmed===true; over-max cancel releases hold (holdAmountCents=0). Run: BASE_URL=http://localhost:3000 ALLOW_DEMO_DB=1 DB_PATH=data/want-it.db pnpm tsx scripts/acceptance.ts (resets demo DB).
 
 - 14:34 [T] Teammate branch pushed; integration tests pass and teammate paths pass lint/typecheck. Full pnpm lint now fails in lead-owned scripts/acceptance.ts: no-explicit-any at 71, 73, 81, 502 and prefer-const at 481. Lead should fix these before full build/PR verification. Keewano keys still missing locally. Benchmark remains estimates per user direction; no vendor form submitted.
+- 14:34 [L] VENDOR_MODE=human for now (only 1 Dial number on the account; number B not bought). Phone scripts in WIP/VENDOR_SCRIPTS.md — Certly answers at +1 519-778-8728, Vantly at +1 510-809-6937. Calls come from +1 878-264-5794.
