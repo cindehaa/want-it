@@ -13,74 +13,83 @@ type OrderResponse = {
   quotes: { count: number; bestPricePerSeatCents: number | null; bestVendorId: string | null };
 };
 
-const money = (cents: number) => (cents % 100 === 0 ? `$${cents / 100}` : `$${(cents / 100).toFixed(2)}`);
+const money = (cents: number) => `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const vendorName = (id: string | null) => (id ? `${id.charAt(0).toUpperCase()}${id.slice(1)} (test vendor)` : "a vendor");
 const CANCELLABLE = ["held", "pooled", "negotiating"];
 
+const clock = (iso: string) => new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }).toLowerCase();
+
+function closesIn(closesAtIso: string): string {
+  const ms = new Date(closesAtIso).getTime() - Date.now();
+  if (!Number.isFinite(ms) || ms <= 0) return "closing";
+  const h = Math.floor(ms / 3_600_000);
+  const d = Math.floor(h / 24);
+  if (d > 0) return `in ${d}d ${h - d * 24}h`;
+  const m = Math.floor((ms % 3_600_000) / 60_000);
+  return h > 0 ? `in ${h}h ${m}m` : `in ${m}m`;
+}
+
 type StepState = "done" | "current" | "pending" | "bad";
-type Step = { label: string; detail?: string; state: StepState };
+type Step = { label: string; detail?: string; state: StepState; when?: string };
 
 function buildSteps(d: OrderResponse): Step[] {
   const o = d.order;
   const hold = money(o.seats * Math.min(d.listPricePerSeatCents, o.maxPricePerSeatCents ?? d.listPricePerSeatCents));
   const finalTotal = o.finalPricePerSeatCents != null ? money(o.finalPricePerSeatCents * o.seats) : null;
-  const steps: Step[] = [{ label: "Order placed", detail: `Card hold of ${hold} (simulated)`, state: "done" }];
+  const placedAt = clock(o.createdAt);
+  const steps: Step[] = [{ label: "Placed", detail: `Card hold of ${hold}, simulated`, state: "done", when: placedAt }];
 
   if (o.status === "canceled_by_buyer") {
-    steps.push({ label: "Canceled by you", detail: "Hold released. You were not charged.", state: "bad" });
+    steps.push({ label: "Canceled by you", detail: "Hold released. You were not charged.", state: "bad", when: clock(o.updatedAt) });
     return steps;
   }
 
   const pooled = o.status !== "held";
   steps.push({
-    label: pooled ? `Pooled with ${d.pool.members} buyer${d.pool.members === 1 ? "" : "s"}` : "Waiting to join the pool",
+    label: pooled ? `Pooled with ${d.pool.members} ${d.pool.members === 1 ? "startup" : "startups"}` : "Waiting to join the pool",
     detail: pooled ? `${d.pool.totalSeats} seats in the group` : undefined,
     state: pooled ? "done" : "current",
+    when: pooled ? placedAt : "live",
   });
 
   const decided = ["deal_applied", "list_price", "canceled_over_max", "charged"].includes(o.status);
   const negotiating = o.status === "negotiating" || ["negotiating", "deal_found", "no_deal", "settled"].includes(d.pool.status);
+  const negotiatingNow = !decided && pooled && negotiating;
   steps.push({
-    label: "Negotiating",
+    label: negotiatingNow ? "Negotiating now" : "Negotiating",
     detail: !pooled
       ? undefined
       : d.quotes.count > 0
-        ? `${d.quotes.count} vendor quote${d.quotes.count === 1 ? "" : "s"} so far` +
-          (d.quotes.bestPricePerSeatCents != null ? ` · best ${money(d.quotes.bestPricePerSeatCents)}/seat` : "")
+        ? `${d.quotes.count} vendor ${d.quotes.count === 1 ? "quote" : "quotes"} so far` +
+          (d.quotes.bestPricePerSeatCents != null ? `. Best so far ${money(d.quotes.bestPricePerSeatCents)} a seat` : "")
         : decided
           ? "No vendor quotes were received"
           : negotiating
             ? "Our agent is talking to vendors"
-          : "Starts when the pool is ready",
-    state: decided ? "done" : pooled && negotiating ? "current" : "pending",
+            : "Starts when the pool is ready",
+    state: decided ? "done" : negotiatingNow ? "current" : "pending",
+    when: negotiatingNow ? "live" : undefined,
   });
 
   if (o.status === "deal_applied" || o.status === "charged") {
     const price = o.finalPricePerSeatCents;
-    steps.push({ label: price != null ? `Deal found: ${money(price)}/seat` : "Deal found", detail: finalTotal ? `${finalTotal} total for ${o.seats} seats` : undefined, state: "done" });
+    steps.push({ label: price != null ? `Deal found, ${money(price)} a seat` : "Deal found", detail: finalTotal ? `${finalTotal} total for ${o.seats} seats` : undefined, state: "done" });
   } else if (o.status === "list_price") {
-    steps.push({ label: `No better deal (list ${money(d.listPricePerSeatCents)}/seat)`, detail: "Vendors didn't beat list price. You pay list, never more.", state: "done" });
+    steps.push({ label: `No better deal, list ${money(d.listPricePerSeatCents)} a seat`, detail: "Vendors did not beat list price. You pay list, never more.", state: "done" });
   } else if (o.status === "canceled_over_max") {
-    steps.push({ label: "Canceled: deal didn't reach your max", detail: "Hold released. You were not charged.", state: "bad" });
+    steps.push({ label: "Canceled, the deal did not reach your cap", detail: "Hold released. You were not charged.", state: "bad" });
     return steps;
   } else {
-    steps.push({ label: "Result", detail: "A better price, no better deal, or a cancel if the price is over your max", state: "pending" });
+    steps.push({ label: "Final price", detail: "A better price, list, or a cancel if the price is over your cap", state: "pending", when: closesIn(d.pool.windowClosesAt) });
   }
 
   steps.push({
-    label: "Payment is simulated",
-    detail: "This demo saves the final price. It does not charge a real card.",
+    label: "Charged, simulated",
+    detail: decided ? "This demo saves the final price. It does not charge a real card." : "At your final price when the window closes",
     state: decided ? "done" : "pending",
   });
   return steps;
 }
-
-const dot: Record<StepState, string> = {
-  done: "bg-emerald-600 text-white",
-  current: "bg-white text-emerald-700 ring-2 ring-emerald-600",
-  pending: "bg-zinc-100 text-zinc-400",
-  bad: "bg-red-100 text-red-700",
-};
 
 export default function OrderPage() {
   const { id } = useParams<{ id: string }>();
@@ -118,22 +127,18 @@ export default function OrderPage() {
     }
   }
 
-  const shell = (children: React.ReactNode) => (
-    <div className="min-h-screen bg-zinc-50 text-zinc-900">
-      <header className="mx-auto flex max-w-2xl items-center justify-between px-4 pt-5">
-        <Link href="/" className="text-lg font-semibold tracking-tight">
-          want<span className="text-emerald-600">-it</span>
-        </Link>
-        <Link href="/pool" className="text-sm text-zinc-500 hover:text-emerald-700">
-          Marketplace view
-        </Link>
-      </header>
-      <main className="mx-auto max-w-2xl px-4 pb-16 pt-8">{children}</main>
-    </div>
-  );
+  const shell = (children: React.ReactNode) => <main className="mx-auto flex w-full max-w-[760px] flex-col gap-6 px-6 py-12">{children}</main>;
 
-  if (missing) return shell(<p className="text-zinc-600">We couldn&apos;t find that order. <Link href="/" className="text-emerald-700 underline">Back to the store</Link></p>);
-  if (!data) return shell(<p className="text-zinc-500">Loading your order…</p>);
+  if (missing)
+    return shell(
+      <p className="m-0 text-muted">
+        We could not find that order.{" "}
+        <Link href="/" className="text-accent-strong underline">
+          Back to the store
+        </Link>
+      </p>,
+    );
+  if (!data) return shell(<p className="m-0 text-muted">Loading your order</p>);
 
   const o = data.order;
   const list = data.listPricePerSeatCents;
@@ -141,95 +146,106 @@ export default function OrderPage() {
   const steps = buildSteps(data);
   const dealPrice = o.status === "deal_applied" || o.status === "charged" ? o.finalPricePerSeatCents : null;
   const saved = dealPrice != null && dealPrice < list ? (list - dealPrice) * o.seats : 0;
+  const hold = money(o.holdAmountCents);
+  const liveNegotiation = steps.some((s) => s.state === "current");
+
+  const heading = canceled ? "Order canceled" : dealPrice != null ? "Deal applied" : o.status === "list_price" ? "Final price is list" : "Order placed";
+  const sub = canceled
+    ? o.status === "canceled_over_max"
+      ? "The deal did not reach your cap. Your hold was released and you were not charged."
+      : "Your hold was released. You were not charged."
+    : dealPrice != null
+      ? "Your group price is in. The redemption link below is yours."
+      : o.status === "list_price"
+        ? "No vendor beat list price. You pay list, never more."
+        : "You can close this page. The agent keeps working on your price.";
 
   return shell(
     <>
-      <div className="flex items-center gap-3">
-        <span className={`flex h-10 w-10 items-center justify-center rounded-full text-xl ${canceled ? "bg-red-100 text-red-700" : "bg-emerald-600 text-white"}`}>{canceled ? "✕" : "✓"}</span>
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-          {o.status === "canceled_by_buyer" ? "Order canceled" : o.status === "canceled_over_max" ? "Order canceled" : "Order confirmed ✓"}
-        </h1>
-      </div>
-      {!canceled && <p className="mt-2 text-zinc-600">You can close this page. We&apos;ll keep working on your price.</p>}
-
-      <div className="mt-5 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
-        {canceled ? (
-          <p className="text-lg font-semibold">
-            {o.status === "canceled_over_max" ? "The deal didn't reach your max, so your hold was released." : "Your hold was released."}
-            <span className="block text-sm font-normal text-zinc-500">You were not charged.</span>
-          </p>
-        ) : (
-          <p className="text-lg font-semibold">
-            You&apos;ll pay at most {money(o.holdAmountCents)}
-            <span className="ml-1 text-sm font-normal text-zinc-500">(card hold — simulated)</span>
-          </p>
-        )}
-        <p className="mt-1 text-sm text-zinc-500">
-          {o.buyerName} · {o.seats} seat{o.seats === 1 ? "" : "s"} · SOC 2 compliance software · list {money(list)}/seat
-          {o.maxPricePerSeatCents != null && <> · your max {money(o.maxPricePerSeatCents)}/seat</>}
-        </p>
+      <div className="flex flex-col gap-1.5">
+        <h1 className="m-0 text-[30px] font-semibold leading-[1.1] tracking-[-0.025em]">{heading}</h1>
+        <p className="m-0 text-[15px] text-muted">{sub}</p>
       </div>
 
-      {o.status === "deal_applied" && dealPrice != null && (
-        <div className="mt-4 rounded-2xl border border-emerald-300 bg-emerald-50 p-5">
-          <p className="text-sm font-medium uppercase tracking-wide text-emerald-800">Price drop</p>
-          <p className="mt-1 text-2xl font-semibold text-emerald-900">
-            <span className="text-emerald-700/60 line-through">{money(list)}</span> → {money(dealPrice)}
-            <span className="text-base font-medium"> /seat</span>
-          </p>
-          {saved > 0 && (
-            <p className="mt-1 text-sm text-emerald-900">
-              You save {money(saved)} across {o.seats} seats ({Math.round(((list - dealPrice) / list) * 100)}% off list).
+      <section aria-label="Order" className="flex flex-col gap-[22px] rounded-[10px] border border-line bg-surface px-7 py-6">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4">
+          <dl className="tabular m-0 grid grid-cols-[repeat(3,auto)] justify-start gap-6 text-sm">
+            <div>
+              <dt className="text-xs text-muted">Product</dt>
+              <dd className="mt-0.5 ml-0">SOC 2 compliance, {o.preferredVendorId ? vendorName(o.preferredVendorId).replace(" (test vendor)", "") : "any vendor"}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted">Seats</dt>
+              <dd className="mt-0.5 ml-0">{o.seats}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted">Company</dt>
+              <dd className="mt-0.5 ml-0">{o.buyerName}</dd>
+            </div>
+          </dl>
+          <div className="text-right">
+            <p className="m-0 text-xs text-muted">{canceled ? "Hold released" : "Never above"}</p>
+            <p className="tabular mb-0 mt-0.5 text-[28px] font-semibold leading-none tracking-[-0.025em]">{hold}</p>
+          </div>
+        </div>
+
+        {dealPrice != null && (
+          <div className="flex flex-col gap-1.5 border-t border-line pt-[18px] text-sm">
+            <p className="tabular m-0">
+              Price drop: <span className="line-through">{money(list)}</span> to <span className="font-semibold">{money(dealPrice)}</span> a seat
+              {saved > 0 && <>, you save {money(saved)} across {o.seats} seats ({Math.round(((list - dealPrice) / list) * 100)}% off list)</>}.
             </p>
-          )}
-          {o.redemptionLink && (
-            <div className="mt-4 border-t border-emerald-200 pt-3 text-sm">
-              <p className="text-emerald-900">Redeem with {vendorName(data.dealVendorId)}:</p>
-              <a href={o.redemptionLink} target="_blank" rel="noopener noreferrer" className="break-all font-medium text-emerald-800 underline">
-                {o.redemptionLink}
-              </a>
-              <p className="mt-1 text-xs text-emerald-800/80">Test redemption link. The vendor is fictional and nothing real is provisioned.</p>
-            </div>
-          )}
-        </div>
-      )}
+            {o.redemptionLink && (
+              <p className="m-0 text-muted">
+                Redeem with {vendorName(data.dealVendorId)}:{" "}
+                <a href={o.redemptionLink} target="_blank" rel="noopener noreferrer" className="break-all font-medium text-accent-strong underline">
+                  {o.redemptionLink}
+                </a>
+                <span className="mt-1 block text-xs">Test redemption link. The vendor is fictional and nothing real is provisioned.</span>
+              </p>
+            )}
+          </div>
+        )}
 
-      {o.status === "list_price" && (
-        <div className="mt-4 rounded-2xl border border-zinc-200 bg-white p-5 text-sm text-zinc-700">
-          No vendor beat list price, so you pay list ({money(list)}/seat). You are never charged more than list.
-        </div>
-      )}
+        <ol className="m-0 list-none border-t border-line p-0">
+          {steps.map((s, i) => (
+            <li key={i} className="grid grid-cols-[20px_minmax(0,1fr)_auto] items-baseline gap-3 border-b border-[#f0f2f4] py-3">
+              <span aria-hidden className="inline-flex justify-center">
+                {s.state === "current" && <span className="wi-live-dot inline-block h-2 w-2 rounded-full bg-accent" />}
+              </span>
+              <span className="flex flex-col gap-0.5">
+                <span className={`text-[15px] ${s.state === "current" ? "font-semibold" : "font-medium"} ${s.state === "pending" ? "text-faint" : "text-ink"}`}>{s.label}</span>
+                {s.detail && <span className="tabular text-[13px] text-muted">{s.detail}</span>}
+              </span>
+              <span className="tabular text-xs text-faint">{s.when ?? ""}</span>
+            </li>
+          ))}
+        </ol>
 
-      <ol className="mt-6 space-y-0 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
-        {steps.map((s, i) => (
-          <li key={i} className="relative flex gap-4 pb-5 last:pb-0">
-            {i < steps.length - 1 && <span className="absolute left-[13px] top-7 h-[calc(100%-1.75rem)] w-px bg-zinc-200" aria-hidden />}
-            <span className={`z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${dot[s.state]}`}>
-              {s.state === "done" ? "✓" : s.state === "bad" ? "✕" : i + 1}
-            </span>
-            <div className={s.state === "pending" ? "text-zinc-400" : ""}>
-              <p className={`font-medium ${s.state === "pending" ? "" : "text-zinc-900"}`}>{s.label}</p>
-              {s.detail && <p className="text-sm text-zinc-500">{s.detail}</p>}
-            </div>
-          </li>
-        ))}
-      </ol>
+        <p className="m-0 text-xs text-muted">
+          {canceled ? `Simulated card hold for ${hold}, released. Nothing was charged.` : `Simulated card hold for ${hold}. Charged at the final price when the window closes, never above list.`}
+        </p>
+      </section>
 
-      <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Link href="/pool" className="text-sm font-medium text-emerald-700 hover:underline">
-          See what&apos;s happening behind the scenes →
+      <div className="flex items-center justify-between gap-4">
+        <Link
+          href="/negotiation"
+          className="inline-flex h-12 items-center gap-2.5 rounded-lg bg-ink px-[22px] text-[15px] font-semibold text-white hover:bg-black"
+        >
+          {liveNegotiation && <span aria-hidden className="wi-live-dot inline-block h-2 w-2 rounded-full bg-accent" />}
+          Watch the live negotiation
         </Link>
         {CANCELLABLE.includes(o.status) && (
-          <button
-            onClick={cancel}
-            disabled={canceling}
-            className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:border-red-300 hover:text-red-700 disabled:opacity-60"
-          >
-            {canceling ? "Canceling…" : "Cancel order"}
+          <button type="button" onClick={cancel} disabled={canceling} className="cursor-pointer border-0 bg-transparent p-0 text-sm text-muted hover:text-ink disabled:cursor-not-allowed disabled:opacity-60">
+            {canceling ? "Canceling" : "Cancel order"}
           </button>
         )}
       </div>
-      {cancelError && <p className="mt-2 text-sm text-red-700">{cancelError}</p>}
+      {cancelError && (
+        <p role="alert" className="m-0 text-sm text-danger">
+          {cancelError}
+        </p>
+      )}
     </>,
   );
 }

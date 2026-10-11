@@ -1,0 +1,70 @@
+/* New listing flow: screens fade and rise in, steps draw their check, the active step spins a ring. */
+@keyframes wi-listing-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.wi-screen {
+  animation: wi-listing-in 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) 1;
+}
+.wi-step-new {
+  animation: wi-listing-in 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) 1;
+}
+
+@keyframes wi-listing-draw {
+  from {
+    stroke-dashoffset: 24;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.wi-check {
+  stroke-dasharray: 24;
+  animation: wi-listing-draw 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes wi-listing-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.wi-ring {
+  animation: wi-listing-spin 0.9s linear infinite;
+}
+
+.wi-meter-fill {
+  transition: width 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes wi-listing-pop {
+  0% {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+.wi-pop {
+  animation: wi-listing-pop 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wi-screen,
+  .wi-step-new,
+  .wi-check,
+  .wi-ring,
+  .wi-pop {
+    animation: none;
+  }
+  .wi-meter-fill {
+    transition: none;
+  }
+}
