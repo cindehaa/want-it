@@ -305,11 +305,23 @@ export async function listNumbers(): Promise<DialResult<DialNumber[]>> {
 export async function getRecording(dialCallId: string, range?: string): Promise<Response> {
   const key = process.env.DIAL_API_KEY;
   if (!key) return new Response(null, { status: 503 });
-  return fetch(`${candidateBases()[0]}/calls/${encodeURIComponent(dialCallId)}/recording`, {
+  const response = await fetch(`${candidateBases()[0]}/calls/${encodeURIComponent(dialCallId)}/recording`, {
     headers: { Authorization: `Bearer ${key}`, ...(range ? { Range: range } : {}) },
     signal: AbortSignal.timeout(30_000),
     cache: "no-store",
-    redirect: "error",
+    redirect: "manual",
+  });
+  if (![301, 302, 303, 307, 308].includes(response.status)) return response;
+  const location = response.headers.get("location");
+  await response.body?.cancel();
+  if (!location) throw new Error("Dial recording redirect has no location");
+  const target = new URL(location);
+  if (target.protocol !== "https:" || target.hostname !== "t3.storageapi.dev" || target.username || target.password) {
+    throw new Error("Unexpected recording storage destination");
+  }
+  // The storage URL is already signed. Never send the Dial bearer key to storage.
+  return fetch(target.href, {
+    headers: range ? { Range: range } : {}, signal: AbortSignal.timeout(30_000), cache: "no-store", redirect: "error",
   });
 }
 

@@ -43,7 +43,7 @@ test("default live negotiate-all starts all five calls within two seconds", asyn
   assert.equal(new Set(calls.map((c) => c.sequence)).size, 5);
   const refresh = await import("@/lib/dial/refresh");
   const finished = await Promise.all(calls.map((call) => refresh.refreshCall(call.id, { force: true })));
-  assert.ok(finished.every((r) => r.call?.audio.recordingUrl === `/api/calls/${r.call.id}/audio`));
+  assert.ok(finished.every((r) => r.call !== null && r.call.audio.recordingUrl === `/api/calls/${r.call.id}/audio`));
   (await import("@/lib/dial/runner")).stopRun();
 });
 
