@@ -1,0 +1,145 @@
+/* Map-first marketplace (/pool). Prefixed mf- so it never collides with globals.css wi- rules. */
+.mf-map.leaflet-container {
+  background: #eef1f3;
+  font-family: inherit;
+}
+/* CARTO Positron now requires an API key, so use OSM tiles pushed to a light, desaturated look. */
+.mf-map .leaflet-tile-pane {
+  filter: grayscale(1) brightness(1.22) contrast(0.7);
+}
+.mf-map .leaflet-top.leaflet-left {
+  top: 76px;
+  margin-left: 12px;
+}
+@media (max-width: 639px) {
+  .mf-map .leaflet-control-zoom {
+    display: none;
+  }
+}
+.mf-map .leaflet-control-attribution {
+  font-size: 10px;
+}
+
+.mf-icon {
+  background: none;
+  border: none;
+  overflow: visible;
+}
+.mf-dot {
+  position: relative;
+  box-sizing: border-box;
+  border-radius: 999px;
+  transition:
+    background-color 0.5s ease,
+    border-color 0.5s ease;
+}
+.mf-dot--pooled {
+  background: rgba(16, 185, 129, 0.35);
+  border: 2px solid #059669;
+}
+.mf-dot--excluded {
+  background: rgba(148, 163, 184, 0.35);
+  border: 2px dashed #64748b;
+}
+.mf-dot--you {
+  outline: 2px solid #12171c;
+  outline-offset: 5px;
+}
+.mf-you-label {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 9px);
+  transform: translateX(-50%);
+  background: #12171c;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 3px 7px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+@keyframes mf-join {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  }
+  100% {
+    box-shadow: 0 0 0 28px rgba(16, 185, 129, 0);
+  }
+}
+.mf-dot--join {
+  animation: mf-join 1.4s cubic-bezier(0.2, 0.8, 0.2, 1) 1;
+}
+@keyframes mf-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.55);
+  }
+  100% {
+    box-shadow: 0 0 0 9px rgba(5, 150, 105, 0);
+  }
+}
+.mf-live-dot {
+  animation: mf-pulse 1.6s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+}
+@keyframes mf-flash {
+  0% {
+    color: #047857;
+  }
+  100% {
+    color: #12171c;
+  }
+}
+.mf-flash {
+  animation: mf-flash 1.2s ease-out 1;
+}
+@keyframes mf-slide {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+.mf-drawer {
+  animation: mf-slide 0.18s ease-out 1;
+}
+.mf-tooltip.leaflet-tooltip {
+  border: 1px solid #e1e4e8;
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(18, 23, 28, 0.12);
+  padding: 8px 10px;
+  color: #12171c;
+  font-size: 12px;
+  line-height: 1.35;
+}
+.mf-step {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid #cfd5db;
+  background: #ffffff;
+  font: inherit;
+  font-size: 18px;
+  color: #12171c;
+  cursor: pointer;
+}
+.mf-step:hover:not(:disabled) {
+  background: #f4f5f6;
+}
+.mf-step:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+@media (prefers-reduced-motion: reduce) {
+  .mf-dot--join,
+  .mf-live-dot,
+  .mf-flash,
+  .mf-drawer {
+    animation: none;
+  }
+  .mf-dot {
+    transition: none;
+  }
+}

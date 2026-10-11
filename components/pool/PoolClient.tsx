@@ -3,25 +3,17 @@
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PoolView } from "@/lib/contracts";
-import EvidenceCard, { EvidenceBadges } from "./EvidenceCard";
-import NegotiationPanel from "./NegotiationPanel";
-import PoolHeader, { type DataSource } from "./PoolHeader";
-import PriceCurve from "./PriceCurve";
-import SettlePanel from "./SettlePanel";
-import { Step, Stepper, phaseOf, stepState } from "./Story";
-import TimeSavedHero from "./TimeSavedHero";
+import Link from "next/link";
+import DemoControls from "./DemoControls";
+import DetailsDrawer from "./DetailsDrawer";
+import { Legend, OrderDock, SearchPill, StatPill } from "./Overlays";
+import type { DataSource } from "./PoolHeader";
 import { buildFixture, type FixtureStage } from "./fixture";
 
 const DemandMap = dynamic(() => import("./DemandMap"), {
   ssr: false,
   loading: () => <div className="grid h-full place-items-center text-sm text-muted">Loading map…</div>,
 });
-
-const EXCLUSION_REASON: Record<string, string> = {
-  wrong_category: "different category",
-  deadline_before_window: "deadline before the window closes",
-  canceled: "canceled",
-};
 
 const POLL_MS = 1500;
 const CALL_POLL_MS = 3000;
@@ -36,6 +28,7 @@ export default function PoolClient() {
   const [view, setView] = useState<PoolView | null>(null);
   const [source, setSource] = useState<DataSource>("live");
   const [stale, setStale] = useState(false);
+  const [drawer, setDrawer] = useState(false);
   const everLive = useRef(false);
   const forced = useRef<FixtureStage | null>(null);
   const callPolledAt = useRef(new Map<string, number>());
@@ -94,81 +87,50 @@ export default function PoolClient() {
     };
   }, []);
 
-  if (!view) {
-    return (
-      <main className="mx-auto max-w-[920px] px-4 py-10 sm:px-6">
-        <p className="text-sm text-muted" role="status">
-          Loading the marketplace…
-        </p>
-      </main>
-    );
-  }
-
   const onChanged = () => void refreshRef.current();
-  const phase = phaseOf(view);
-  const ordersById = new Map(view.orders.map((o) => [o.id, o]));
-  const excluded = view.pool.exclusions.flatMap((e) => {
-    const o = ordersById.get(e.orderId);
-    return o ? [{ name: o.buyerName, reason: EXCLUSION_REASON[e.reason] ?? e.reason }] : [];
-  });
+
+  const btn =
+    "inline-flex h-10 items-center justify-center rounded-lg border border-line bg-white px-3.5 text-[13px] font-medium text-ink transition-colors hover:bg-canvas";
 
   return (
-    <div className="min-h-[calc(100vh-3rem)] bg-white">
-      <main className="mx-auto w-full max-w-[920px] px-4 pb-16 pt-5 sm:px-6">
-        <PoolHeader view={view} source={source} stale={stale} onChanged={onChanged} />
+    <div className="relative isolate h-[calc(100dvh-49px)] min-h-[640px] overflow-hidden bg-[#eef1f3]">
+      <section aria-label="Demand map" className="absolute inset-0 z-0">
+        {view ? (
+          <DemandMap view={view} />
+        ) : (
+          <p className="grid h-full place-items-center text-sm text-muted" role="status">
+            Loading the marketplace…
+          </p>
+        )}
+      </section>
 
-        <Stepper phase={phase} />
+      {view && (
+        <>
+          <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex flex-col gap-2 sm:inset-x-6 sm:top-5 sm:flex-row sm:items-start sm:justify-between [&>*]:pointer-events-auto">
+            <SearchPill category={view.pool.category} />
+            <StatPill view={view} source={source} stale={stale} />
+            <Legend className="flex w-fit sm:hidden" />
+          </div>
 
-        <div className="mt-9">
-          <Step n={1} title="Pool the demand" state={stepState(1, phase)}>
-            <p className="text-[15px] leading-snug">
-              <span className="tabular font-semibold">{view.pool.memberOrderIds.length}</span> startups
-              {" · "}
-              <span className="tabular font-semibold">{view.pool.totalSeats}</span> seats waiting.{" "}
-              <span className="text-muted">Cards are held, not charged.</span>
-            </p>
-            <section
-              aria-label="Demand map"
-              className="relative isolate mt-3 h-[280px] overflow-hidden rounded-lg border border-line bg-surface sm:h-[320px]"
-            >
-              <DemandMap view={view} />
-            </section>
-            {excluded.length > 0 && (
-              <p className="mt-3 text-[13px] leading-snug text-muted">
-                <span className="font-medium text-ink">Not pooled:</span>{" "}
-                {excluded.map((e, i) => (
-                  <span key={`${e.name}-${i}`}>
-                    {i > 0 && ", "}
-                    {e.name} <span className="text-faint">({e.reason})</span>
-                  </span>
-                ))}
-              </p>
-            )}
-          </Step>
+          <Legend className="absolute bottom-6 left-6 z-10 hidden sm:flex" />
 
-          <Step
-            n={2}
-            title="Find leverage"
-            state={stepState(2, phase)}
-            aside={<EvidenceBadges evidence={view.evidence} now={view.now} />}
-          >
-            <EvidenceCard evidence={view.evidence} />
-          </Step>
+          <OrderDock view={view} />
 
-          <Step n={3} title="Negotiate by phone" state={stepState(3, phase)}>
-            <NegotiationPanel view={view} phase={phase} onChanged={onChanged} />
-          </Step>
+          <div className="absolute inset-x-3 bottom-6 z-10 flex gap-2 sm:inset-x-auto sm:right-6">
+            <Link href="/negotiation" className={`${btn} flex-1 sm:flex-none`}>
+              Live negotiation
+            </Link>
+            <button type="button" className={`${btn} cursor-pointer`} onClick={() => setDrawer(true)}>
+              Details
+            </button>
+            <DemoControls view={view} onChanged={onChanged} />
+          </div>
 
-          <Step n={4} title="Everyone pays less" state={stepState(4, phase)} last>
-            <PriceCurve view={view} />
-            <SettlePanel view={view} phase={phase} onChanged={onChanged} />
-          </Step>
-        </div>
-
-        <div className="mt-2">
-          <TimeSavedHero view={view} />
-        </div>
-      </main>
+          {drawer && (
+            <DetailsDrawer view={view} source={source} stale={stale} onChanged={onChanged} onClose={() => setDrawer(false)} />
+          )}
+        </>
+      )}
     </div>
   );
 }
