@@ -55,7 +55,7 @@ graph TD
 ## V3 — 5-vendor negotiation room (added 15:05)
 | ID | Owner | Ver | Target | Status | Depends on | Files | Done when |
 |---|---|---|---|---|---|---|---|
-| L9 | L (agent) | V3 | 3:30 | doing | V1 | lib/vendors.ts, lib/dial/vendorPersonas.ts, lib/dial/prompt.ts, lib/dial/runner.ts, app/api/pool/negotiate*/** | 5 test vendors; sequential runner; each call cites best effective quote so far |
-| L10 | L (agent) | V3 | 3:30 | doing | — | app/negotiation/**, components/negotiation/**, components/Nav.tsx | /negotiation: 5 vendor lanes, live transcripts, leaderboard, best-offer chart, time panel |
-| L11 | L (agent) | — | 3:25 | doing | — | lib/db/index.ts, package.json, next.config.ts | Production deploy on Vercel (want-it.vercel.app), main auto-deploys |
+| L9 | L (agent) | V3 | 3:30 | done | V1 | lib/vendors.ts, lib/dial/vendorPersonas.ts, lib/dial/prompt.ts, lib/dial/runner.ts, app/api/pool/negotiate*/** | 5 test vendors; sequential runner; each call cites best effective quote so far |
+| L10 | L (agent) | V3 | 3:30 | done | — | app/negotiation/**, components/negotiation/**, components/Nav.tsx | /negotiation: 5 vendor lanes, live transcripts, leaderboard, best-offer chart, time panel |
+| L11 | L (agent) | — | 3:25 | done | — | lib/db/index.ts, package.json, next.config.ts | Production deploy on Vercel (want-it.vercel.app), main auto-deploys |
 | X2 | L + Cindy | V3 | 3:40 | todo | L9, L10 | — | Real 5-vendor run recorded (needs Dial credit ≈ $1/call) |
