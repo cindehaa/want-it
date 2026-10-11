@@ -13,7 +13,7 @@ export type Phase = "negotiate" | "settle" | "done";
 
 export function phaseOf(view: PoolView): Phase {
   if (view.pool.status === "settled") return "done";
-  const busy = view.calls.some((c) => c.status === "queued" || c.status === "in_progress");
+  const busy = view.calls.some((c) => c.status !== "extracted" && c.status !== "failed");
   if (view.quotes.length > 0 && !busy) return "settle";
   return "negotiate";
 }
