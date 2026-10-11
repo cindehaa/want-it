@@ -9,6 +9,7 @@ import { Badge, Spinner } from "@/components/pool/ui";
 import { buildLanes, parseRun, poolFacts, rankLanes, type Lane, type RunState } from "./derive";
 import { buildNegotiationFixture, type NegotiationFixtureStage } from "./fixture";
 import Leaderboard from "./Leaderboard";
+import { BestDealBanner, buildPlaybackPlan, lanesAt, PlaybackBar, playableCount, totalMs, usePlaybackClock } from "./ParallelPlayback";
 import RatchetChart from "./RatchetChart";
 import RunControls, { type RunMode } from "./RunControls";
 import TimePanel from "./TimePanel";
@@ -71,8 +72,11 @@ export default function NegotiationClient() {
   const [personas, setPersonas] = useState<PersonasPayload | null>(null);
   const [pending, setPending] = useState<RunMode | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
+  const [runChecked, setRunChecked] = useState(false);
+  const [playbackOpen, setPlaybackOpen] = useState(false);
   const everLive = useRef(false);
   const forced = useRef(false);
+  const autoplayHandled = useRef(false);
 
   const refreshPool = useCallback(async () => {
     if (forced.current) return;
@@ -100,6 +104,7 @@ export default function NegotiationClient() {
   const refreshRun = useCallback(async () => {
     if (forced.current) return;
     const r = await fetchRun();
+    if (r.kind !== "error") setRunChecked(true);
     if (r.kind === "missing") {
       setRunAvailable(false);
       return;
@@ -152,10 +157,37 @@ export default function NegotiationClient() {
     };
   }, []);
 
+  // Playback plan + shared clock. Hooks run before the early return below, so derive from a possibly-null view.
+  const baseLanes = view ? buildLanes(view, run) : [];
+  const plan = view && source === "live" ? buildPlaybackPlan(view, baseLanes) : [];
+  const canPlayback = playableCount(plan) >= 1;
+  const clock = usePlaybackClock(totalMs(plan));
+
+  function startPlayback() {
+    setPlaybackOpen(true);
+    clock.restart();
+  }
+  const startPlaybackRef = useRef(startPlayback);
+  startPlaybackRef.current = startPlayback;
+
+  // /negotiation?autoplay=1: no click needed. A live run already in progress is shown live instead.
+  useEffect(() => {
+    if (autoplayHandled.current || !view || source !== "live" || !runChecked) return;
+    if (new URLSearchParams(window.location.search).get("autoplay") !== "1") {
+      autoplayHandled.current = true;
+      return;
+    }
+    autoplayHandled.current = true;
+    if (run?.running) return; // show it live
+    if (canPlayback) startPlaybackRef.current();
+  }, [view, source, runChecked, run, canPlayback]);
+
   async function startRun(mode: RunMode) {
     setPending(mode);
     setRunError(null);
-    const res = await postJson("/api/pool/negotiate-all", { mode });
+    setPlaybackOpen(false);
+    clock.stop();
+    const res = await postJson("/api/pool/negotiate-all", mode === "parallel" ? { mode: "live", parallel: true } : { mode });
     setPending(null);
     if (!res.ok) {
       setRunError(res.error);
@@ -177,13 +209,21 @@ export default function NegotiationClient() {
     );
   }
 
-  const lanes = buildLanes(view, run);
+  const liveLanes = baseLanes;
   const facts = poolFacts(view);
   const running = !!run?.running;
-  const showControls = source === "live" && runAvailable;
+  const showControls = source === "live";
+  const replaying = playbackOpen && !running;
+  // During playback every lane is derived from the shared clock; otherwise the live DB state.
+  const lanes = replaying ? lanesAt(view, liveLanes, plan, clock.t) : liveLanes;
   const ranked = rankLanes(lanes);
   const best = ranked[0]?.eligible ? ranked[0] : null;
+  const liveBest = rankLanes(liveLanes)[0]?.eligible ? rankLanes(liveLanes)[0] : null;
   const firstWaiting = lanes.find((l) => l.status === "waiting");
+  const parallelRun = !!run?.parallel;
+  // The run/replay is over: show the best deal prominently.
+  const runFinished = !replaying && !running && !!run?.finishedAt;
+  const showBest: Lane | null = replaying ? (clock.finished ? best : null) : runFinished ? liveBest : null;
   const closesInMs = new Date(view.pool.windowClosesAt).getTime() - new Date(view.now).getTime();
   const closed = view.pool.status === "settled" || closesInMs <= 0;
 
@@ -192,7 +232,7 @@ export default function NegotiationClient() {
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-[22px] font-semibold leading-tight tracking-tight">Negotiation room</h1>
+            <h1 className="text-[22px] font-semibold leading-tight tracking-tight">Behind the scenes: our agents negotiate for {facts.startups} startups</h1>
             {source === "fixture" && (
               <Badge tone="warn" title="The pool API is unreachable, so this is local sample data. No real calls were made.">
                 fixture data
@@ -206,7 +246,12 @@ export default function NegotiationClient() {
             <RunBadge run={run} lanes={lanes} />
           </div>
           <p className="mt-0.5 text-sm text-muted">
-            Our agent phones {lanes.length} test vendors one after another, each call citing the best offer so far.
+            The marketplace dispatches the agents automatically; buyers never start a negotiation.{" "}
+            {replaying
+              ? `Each of the ${lanes.length} vendors has its own phone line below.`
+              : parallelRun
+                ? `Our agents phone all ${lanes.length} test vendors at once, one phone line each.`
+                : `Our agent phones ${lanes.length} test vendors, each call citing the best offer so far.`}
           </p>
           <dl className="mt-3 flex flex-wrap gap-x-7 gap-y-2">
             <Fact value={String(facts.startups)} label="startups pooled" />
@@ -215,43 +260,90 @@ export default function NegotiationClient() {
           </dl>
           <Leverage evidence={view.evidence} now={view.now} />
         </div>
-        {showControls && <RunControls running={running} pending={pending} error={runError} onRun={startRun} />}
+        {showControls && (
+          <RunControls
+            running={running}
+            pending={pending}
+            error={runError}
+            parallelAvailable={run?.parallelAvailable === true}
+            canPlayback={canPlayback}
+            playbackOpen={replaying}
+            onRun={startRun}
+            onPlayback={startPlayback}
+          />
+        )}
       </div>
+
+      {replaying && (
+        <PlaybackBar
+          plan={plan}
+          speed={clock.speed}
+          playing={clock.playing}
+          t={clock.t}
+          total={totalMs(plan)}
+          onSpeed={clock.setSpeed}
+          onPause={clock.pause}
+          onResume={clock.resume}
+          onRestart={clock.restart}
+          onClose={() => {
+            clock.stop();
+            setPlaybackOpen(false);
+          }}
+        />
+      )}
+
+      {showBest && (
+        <div>
+          <BestDealBanner best={showBest} vendorCount={lanes.length} replay={replaying} />
+          <p className="mt-2 text-xs text-muted">
+            <Link href="/pool" className="underline decoration-dotted underline-offset-2 hover:text-ink">
+              See the settlement on the marketplace
+            </Link>
+          </p>
+        </div>
+      )}
 
       <section aria-label="Vendor calls" className="mt-6 grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3">
         {lanes.map((l) => {
-          const active = l.status === "calling" || l.status === "transcribing";
+          const planLane = replaying ? plan.find((p) => p.vendorId === l.vendor.id) : null;
+          const active = replaying ? !!planLane?.call && clock.playing && clock.t < planLane.endMs : l.status === "calling" || l.status === "transcribing";
           const mode = (l.call && callVendorMode(l.call.instruction)) ?? personas?.vendorMode ?? "ai";
           const hint =
             running && l.status === "waiting"
-              ? firstWaiting?.vendor.id === l.vendor.id
-                ? "Next up. The call starts when the current one ends."
-                : "Waiting for earlier calls to finish."
+              ? parallelRun
+                ? "Dialing. All lines ring at the same time."
+                : firstWaiting?.vendor.id === l.vendor.id
+                  ? "Next up. The call starts when the current one ends."
+                  : "Waiting for earlier calls to finish."
               : null;
           return (
             <VendorLane
-              key={l.vendor.id}
+              key={`${replaying ? "pb" : "live"}-${l.vendor.id}`}
               lane={l}
               facts={facts}
               persona={personas?.personas.find((p) => p.vendorId === l.vendor.id)}
               mode={mode}
               active={active}
               runningHint={hint}
+              lineNumber={l.index + 1}
+              elapsedMs={replaying ? Math.min(clock.t, planLane?.endMs ?? 0) : null}
+              playback={replaying}
+              winner={!!showBest && showBest.vendor.id === l.vendor.id}
             />
           );
         })}
       </section>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <Leaderboard lanes={lanes} facts={facts} running={running} />
-        <RatchetChart lanes={lanes} />
+      <div className={`mt-4 grid gap-4 ${replaying ? "" : "lg:grid-cols-2"}`}>
+        <Leaderboard lanes={lanes} facts={facts} running={replaying ? !clock.finished : running} />
+        {!replaying && <RatchetChart lanes={lanes} />}
       </div>
 
       <div className="mt-4">
         <TimePanel view={view} vendorCount={lanes.length} />
       </div>
 
-      <SettleFooter view={view} best={best} running={running} live={source === "live"} onSettled={() => void poolRef.current()} />
+      <SettleFooter view={view} best={liveBest} running={running || replaying} live={source === "live"} onSettled={() => void poolRef.current()} />
     </main>
   );
 }
@@ -267,6 +359,15 @@ function Fact({ value, label }: { value: string; label: string }) {
 
 function RunBadge({ run, lanes }: { run: RunState | null; lanes: Lane[] }) {
   if (!run) return null;
+  if (run.running && run.parallel) {
+    const live = lanes.filter((l) => l.status === "calling" || l.status === "transcribing").length;
+    return (
+      <Badge tone="warn">
+        <Spinner />
+        Parallel{run.round === 2 ? ", round 2 callbacks" : ", round 1"}: {live} of {lanes.length} lines on a call
+      </Badge>
+    );
+  }
   if (run.running) {
     const current = lanes.find((l) => l.status === "calling" || l.status === "transcribing") ?? lanes.find((l) => l.status === "waiting");
     return (

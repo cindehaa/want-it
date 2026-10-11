@@ -9,6 +9,11 @@ export type RunState = {
   order: string[];
   startedAt: string | null;
   finishedAt: string | null;
+  /** Parallel live run (every vendor dialed at once). Optional so fixtures stay valid. */
+  parallel?: boolean;
+  round?: number;
+  /** DIAL_PARALLEL_LANES is configured server-side (>= 2 lanes). */
+  parallelAvailable?: boolean;
 };
 
 export function parseRun(v: unknown): RunState | null {
@@ -23,6 +28,9 @@ export function parseRun(v: unknown): RunState | null {
     order: Array.isArray(r.order) ? r.order.filter((x): x is string => typeof x === "string") : [],
     startedAt: typeof r.startedAt === "string" ? r.startedAt : null,
     finishedAt: typeof r.finishedAt === "string" ? r.finishedAt : null,
+    parallel: r.parallel === true,
+    round: typeof r.round === "number" ? r.round : 1,
+    parallelAvailable: o.parallelAvailable === true,
   };
 }
 
