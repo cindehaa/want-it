@@ -3,7 +3,7 @@ import { mkdir, readFile, writeFile, rename } from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
 import { EVENTS_HASH, EVENT_TYPES, syntheticBatches } from "../../lib/keewano/events";
-import { sendBatch } from "../../lib/keewano/ingest";
+import { registerEvents, sendBatch } from "../../lib/keewano/ingest";
 import { loadEnv } from "./env";
 
 const Receipt = z.object({
@@ -37,6 +37,8 @@ async function main() {
   if (receipt.pending && !process.argv.includes("--retry-pending")) {
     throw new Error("A previous batch has an uncertain outcome. Inspect the receipt, then use --send --retry-pending to retry the SAME idempotent batch");
   }
+  // Confirm the schema first; rejected credentials cannot create an uncertain event receipt.
+  await registerEvents(key, AbortSignal.timeout(8000));
   const save = async () => {
     await mkdir(path.dirname(file), { recursive: true });
     await writeFile(`${file}.tmp`, JSON.stringify(receipt, null, 2), { mode: 0o600 });
