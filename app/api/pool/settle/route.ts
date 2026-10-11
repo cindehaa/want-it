@@ -23,7 +23,7 @@ export async function POST() {
   const byId = new Map(members.map((o) => [o.id, o]));
   const at = now().toISOString();
   let anyDeal = false;
-  for (const s of settleOrders(members, quotes)) {
+  for (const s of settleOrders(members, quotes, now())) {
     const o = byId.get(s.orderId);
     if (!o) continue;
     if (s.status === "deal_applied") {
