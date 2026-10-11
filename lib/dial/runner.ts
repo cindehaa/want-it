@@ -5,6 +5,7 @@
 //                                   which the UI polls) starts the next vendor whenever no call is active.
 // Nothing here fabricates data: replay mode only uses real recordings from data/recorded-calls.json; a vendor
 // without a recording is reported as "no_recording" and skipped.
+import { EMPTY_CALL_AUDIO } from "@/lib/contracts";
 import type { Call, Order, Pool, Quote, Vendor } from "@/lib/contracts";
 import { all, get, kvGet, kvSet, newId, put } from "@/lib/db";
 import { now } from "@/lib/clock";
@@ -109,9 +110,7 @@ async function startNextCall({ mode, vendorId, fromRunner = false }: StartOpts):
   // Sequence = the vendor's slot in the round (1 = Certly ... 5 = ComplyKit). A retry after a failed call without a
   // transcript keeps the slot; an explicit repeat call to a vendor that already has a real call gets the next free number.
   const maxSeq = calls.reduce((m, c) => Math.max(m, c.sequence), 0);
-  const slot = NEGOTIATION_ORDER.indexOf(vendor.id) + 1;
-  const slotTaken = calls.some((c) => c.sequence === slot && !(c.vendorId === vendor!.id && noTranscriptFailure(c)));
-  const sequence = slot > 0 && !slotTaken ? slot : maxSeq + 1;
+  const sequence = maxSeq + 1;
 
   // 2. Validate config / recording BEFORE any side effects.
   // HUMAN_VENDOR_ID: this one vendor is answered by a real person on <VENDOR>_PHONE; the rest use the AI vendor line.
@@ -146,6 +145,8 @@ async function startNextCall({ mode, vendorId, fromRunner = false }: StartOpts):
       vendorId: vendor.id,
       sequence,
       dialCallId: recording.dialCallId,
+      vendorDialCallId: null,
+      audio: { ...EMPTY_CALL_AUDIO, recordingUrl: `/api/calls/${callId}/audio` },
       status: "transcribed",
       source: "recorded_replay",
       recordedAt: recording.recordedAt,
@@ -172,7 +173,7 @@ async function startNextCall({ mode, vendorId, fromRunner = false }: StartOpts):
       ? `[want-it note] vendor_mode=ai: a Dial AI agent answered as ${vendor.name} (test vendor persona applied to the vendor number). Round ${sequence}.`
       : `[want-it note] vendor_mode=human: a teammate answered as ${vendor.name} (test vendor). Round ${sequence}.`;
 
-  const base: Call = { id: callId, poolId: pool.id, vendorId: vendor.id, sequence, dialCallId: null, status: "queued", source: "live", recordedAt: null, instruction: `${header}\n\n${instruction}`, transcriptTurns: [], error: null, startedAt, endedAt: null };
+  const base: Call = { id: callId, poolId: pool.id, vendorId: vendor.id, sequence, dialCallId: null, vendorDialCallId: null, audio: { ...EMPTY_CALL_AUDIO }, status: "queued", source: "live", recordedAt: null, instruction: `${header}\n\n${instruction}`, transcriptTurns: [], error: null, startedAt, endedAt: null };
   const failed = (error: string) => put("calls", { ...base, status: "failed", error, endedAt: new Date().toISOString() });
 
   if (vmode === "ai") {
@@ -390,7 +391,7 @@ export async function tickRunner(): Promise<void> {
 
 /** POST /api/pool/negotiate-all. Validates up front (no side effects on failure), persists the run, takes the first step. */
 export async function startRun(mode: NegotiateMode, opts: { parallel?: boolean; round2?: boolean } = {}): Promise<NegotiateResult> {
-  const parallel = opts.parallel === true;
+  const parallel = mode === "live" && opts.parallel !== false;
   if (parallel) {
     // Validate the parallel config up front: no side effects on failure.
     if (mode !== "live") return reply(400, { error: "Parallel mode is live only. To see recordings side by side use \"Play recorded calls side by side\" on /negotiation." });
@@ -426,7 +427,7 @@ export async function startRun(mode: NegotiateMode, opts: { parallel?: boolean; 
 // competing offer (lib/dial/prompt.ts cites it truthfully from the extracted quotes).
 
 const ROUND1_NOTE =
-  "CONTEXT FOR THIS CALL: want-it is collecting offers from several vendors today. No competing quote is available yet, so do not state, claim, or imply any specific competing price.";
+  "CONTEXT FOR THIS CALL: want-it is collecting offers from several vendors today. Cite only completed earlier offers supplied in the facts above; calls starting together have no knowledge of one another.";
 const ROUND2_NOTE =
   "CONTEXT FOR THIS CALL: this is a callback. You already spoke with this vendor earlier today and are now asking whether it can improve on its own earlier offer, citing only the facts above.";
 
@@ -454,25 +455,23 @@ async function placeLaneCalls(lanes: LaneConfig[], round: 1 | 2): Promise<Negoti
   if (!readRun()?.running) return lanes.map(() => reply(409, { error: "Stopped by user" }));
   const calls = all("calls");
   const poolCallIds = new Set(calls.filter((c) => c.poolId === pool.id).map((c) => c.id));
-  const priorQuotes: Quote[] = round === 1 ? [] : all("quotes").filter((q) => poolCallIds.has(q.callId)); // round 1: nothing known yet, nothing cited
+  const priorQuotes: Quote[] = all("quotes").filter((q) => poolCallIds.has(q.callId));
   let nextSeq = calls.reduce((m, c) => Math.max(m, c.sequence), 0);
 
   const tasks = lanes.map((lane) => {
     const vendor = VENDORS.find((v) => v.id === lane.vendorId);
-    const slot = NEGOTIATION_ORDER.indexOf(lane.vendorId) + 1;
-    const slotTaken = calls.some((c) => c.sequence === slot && !(c.vendorId === lane.vendorId && noTranscriptFailure(c)));
-    const sequence = round === 1 && slot > 0 && !slotTaken ? slot : ++nextSeq;
+    const sequence = ++nextSeq;
     return { lane, vendor, sequence };
   });
 
-  return Promise.all(
+  const results = await Promise.allSettled(
     tasks.map(async ({ lane, vendor, sequence }): Promise<NegotiateResult> => {
       if (!readRun()?.running) return reply(409, { error: "Stopped by user" });
       if (!vendor) return reply(404, { error: `Unknown vendor "${lane.vendorId}".` });
       const callId = newId("call");
       const instruction = `${buildInstruction({ vendor, pool, members, evidence, priorQuotes, now: now() })}\n\n${round === 1 ? ROUND1_NOTE : ROUND2_NOTE}`;
       const header = `[want-it note] vendor_mode=ai: a Dial AI agent answered as ${vendor.name} (test vendor persona applied to the vendor number). Parallel run, round ${round}.`;
-      const base: Call = { id: callId, poolId: pool.id, vendorId: vendor.id, sequence, dialCallId: null, status: "queued", source: "live", recordedAt: null, instruction: `${header}\n\n${instruction}`, transcriptTurns: [], error: null, startedAt: new Date().toISOString(), endedAt: null };
+      const base: Call = { id: callId, poolId: pool.id, vendorId: vendor.id, sequence, dialCallId: null, vendorDialCallId: null, audio: { ...EMPTY_CALL_AUDIO }, status: "queued", source: "live", recordedAt: null, instruction: `${header}\n\n${instruction}`, transcriptTurns: [], error: null, startedAt: new Date().toISOString(), endedAt: null };
       const failed = (error: string) => put("calls", { ...base, status: "failed", error, endedAt: new Date().toISOString() });
 
       const persona = personaFor(vendor.id);
@@ -492,6 +491,18 @@ async function placeLaneCalls(lanes: LaneConfig[], round: 1 | 2): Promise<Negoti
       return reply(201, call);
     }),
   );
+  return results.map((result, index) => {
+    if (result.status === "fulfilled") return result.value;
+    const task = tasks[index];
+    const error = `Call setup failed for ${task.lane.vendorId}`;
+    const call = put("calls", {
+      id: newId("call"), poolId: pool.id, vendorId: task.lane.vendorId, sequence: task.sequence,
+      dialCallId: null, vendorDialCallId: null, audio: { ...EMPTY_CALL_AUDIO }, status: "failed", source: "live",
+      recordedAt: null, instruction: "Call setup failed before a confirmed Dial response.", transcriptTurns: [], error,
+      startedAt: new Date().toISOString(), endedAt: new Date().toISOString(),
+    });
+    return reply(502, { error, call });
+  });
 }
 
 /** Stop the run when a pool/config problem (400/404/409) hit every lane: nothing more would succeed. */

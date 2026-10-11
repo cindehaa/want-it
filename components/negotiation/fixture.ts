@@ -1,3 +1,4 @@
+import { EMPTY_CALL_AUDIO } from "@/lib/contracts";
 // Local fixture for the negotiation room. Used ONLY when GET /api/pool fails (or with ?fixture=idle|running|done).
 // Five fictional test vendors; every quote is supplier_stated. Nothing here is a real call.
 import { buildFixture } from "@/components/pool/fixture";
@@ -103,7 +104,7 @@ export function buildNegotiationFixture(stage: NegotiationFixtureStage): { view:
       poolId: base.pool.id,
       vendorId: p.id,
       sequence: i + 1,
-      dialCallId: null,
+      dialCallId: null, vendorDialCallId: null, audio: { ...EMPTY_CALL_AUDIO },
       status: inFlight ? "in_progress" : "extracted",
       source: "live",
       recordedAt: null,

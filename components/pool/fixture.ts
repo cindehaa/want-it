@@ -1,3 +1,4 @@
+import { EMPTY_CALL_AUDIO } from "@/lib/contracts";
 // Local fixture so the marketplace view renders before /api/pool exists (or when it fails).
 // All buyers except "You" are simulated. Vendors are fictional test vendors.
 import benchmark from "@/data/benchmark.json";
@@ -62,7 +63,7 @@ export function buildFixture(stage: FixtureStage = "open"): PoolView {
       poolId: "pool_soc2",
       vendorId: "certly",
       sequence: 1,
-      dialCallId: null,
+      dialCallId: null, vendorDialCallId: null, audio: { ...EMPTY_CALL_AUDIO },
       status: "extracted",
       source: "recorded_replay",
       recordedAt,
@@ -104,7 +105,7 @@ export function buildFixture(stage: FixtureStage = "open"): PoolView {
       poolId: "pool_soc2",
       vendorId: "vantly",
       sequence: 2,
-      dialCallId: "dial_abc123",
+      dialCallId: "dial_abc123", vendorDialCallId: null, audio: { ...EMPTY_CALL_AUDIO },
       status: "extracted",
       source: "live",
       recordedAt: null,

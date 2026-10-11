@@ -78,12 +78,23 @@ export type Pool = z.infer<typeof Pool>;
 
 export const TranscriptTurn = z.object({ speaker: z.string(), text: z.string(), startMs: z.number() });
 export const CallStatus = z.enum(["queued", "in_progress", "ended", "transcribed", "extracted", "failed"]);
+export const EMPTY_CALL_AUDIO = { liveUrl: null, liveKind: null, recordingUrl: null, expiresAt: null };
+export const CallAudio = z.object({
+  liveUrl: z.string().nullable(),
+  liveKind: z.enum(["websocket", "hls", "mp3", "webrtc"]).nullable(),
+  recordingUrl: z.string().nullable(),
+  expiresAt: z.string().nullable(),
+});
+export type CallAudio = z.infer<typeof CallAudio>;
+
 export const Call = z.object({
   id: z.string(),
   poolId: z.string(),
   vendorId: z.string(),
   sequence: z.number().int(), // 1 = Certly, 2 = Vantly, 3 = Certly callback
   dialCallId: z.string().nullable(),
+  vendorDialCallId: z.string().nullable().default(null),
+  audio: CallAudio.default(() => ({ ...EMPTY_CALL_AUDIO })),
   status: CallStatus,
   source: z.enum(["live", "recorded_replay"]),
   recordedAt: z.string().nullable(), // set when source = recorded_replay
@@ -92,14 +103,7 @@ export const Call = z.object({
   error: z.string().nullable(),
   startedAt: z.string(),
   endedAt: z.string().nullable(),
-  /** Audio from Dial, filled by the back end: a listen-in url while in progress, a recording once ended. */
-  audio: z
-    .object({
-      liveUrl: z.string().nullable(),
-      liveKind: z.enum(["websocket", "hls", "mp3", "webrtc"]).nullable(),
-      recordingUrl: z.string().nullable(),
-    })
-    .optional(),
+
 });
 export type Call = z.infer<typeof Call>;
 

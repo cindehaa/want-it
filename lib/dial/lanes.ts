@@ -47,6 +47,9 @@ export function parseParallelLanes(raw: string | undefined = process.env[PARALLE
     const dup = vals.find((v, i) => vals.indexOf(v) !== i);
     if (dup) return { lanes: [], error: `${PARALLEL_LANES_ENV}: "${dup}" is used by more than one lane; each lane needs its own ${k} (a Dial number handles one call at a time)` };
   }
+  const allNumbers = lanes.flatMap((lane) => [lane.vendorNumberId, lane.callerNumberId]);
+  if (new Set(allNumbers).size !== allNumbers.length) return { lanes: [], error: `${PARALLEL_LANES_ENV}: caller and vendor numbers must be distinct across all lanes` };
+  if (new Set(lanes.map((lane) => lane.vendorPhone)).size !== lanes.length) return { lanes: [], error: `${PARALLEL_LANES_ENV}: each vendor needs a distinct phone number` };
   return { lanes, error: null };
 }
 

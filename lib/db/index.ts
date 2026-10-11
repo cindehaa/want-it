@@ -36,11 +36,11 @@ export function put<T extends TableName>(table: T, row: Tables[T]): Tables[T] {
 
 export function get<T extends TableName>(table: T, id: string): Tables[T] | null {
   const r = db().prepare(`SELECT json FROM ${table} WHERE id = ?`).get(id) as { json: string } | undefined;
-  return r ? (JSON.parse(r.json) as Tables[T]) : null;
+  return r ? readRow(table, r.json) : null;
 }
 
 export function all<T extends TableName>(table: T): Tables[T][] {
-  return (db().prepare(`SELECT json FROM ${table} ORDER BY created_at, id`).all() as { json: string }[]).map((r) => JSON.parse(r.json));
+  return (db().prepare(`SELECT json FROM ${table} ORDER BY created_at, id`).all() as { json: string }[]).map((r) => readRow(table, r.json));
 }
 
 export function findOrderByIdempotencyKey(key: string): Order | null {
@@ -62,3 +62,9 @@ export function resetAll() {
 }
 
 export const newId = (prefix: string) => `${prefix}_${crypto.randomUUID().slice(0, 8)}`;
+
+// Old persisted calls gain additive fields without a destructive database migration.
+function readRow<T extends TableName>(table: T, json: string): Tables[T] {
+  const row = JSON.parse(json);
+  return (table === "calls" ? Call.parse(row) : row) as Tables[T];
+}

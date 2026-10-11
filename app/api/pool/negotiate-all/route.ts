@@ -1,7 +1,7 @@
 // Auto-run the whole negotiation round over all test vendors.
 //   POST   { mode: 'live' | 'replay', parallel?: boolean, round2?: boolean }
 //            start a run (idempotent while running) and place the first call(s).
-//            Sequential (default): one call at a time. { mode:'live', parallel:true }: every vendor lane dials AT ONCE
+//            Live defaults to concurrent configured lanes. Pass parallel:false for sequential live calls. { mode:'live', parallel:true }: every vendor lane dials AT ONCE
 //            (round 1), then the top 2 vendors are called back citing the best competing offer (round 2; skip with
 //            round2:false). Parallel needs env DIAL_PARALLEL_LANES, else 400.
 //   GET                                 run state + per-vendor progress; also advances the run (tickRunner). Poll every ~2s.
