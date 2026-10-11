@@ -110,6 +110,41 @@ export function usePlaybackClock(total: number) {
   return { t, playing, speed, setSpeed, restart, pause, resume, stop, finished: total > 0 && t >= total };
 }
 
+/**
+ * Real call audio (Dial recordings in /public/recordings/<vendorId>.m4a) kept in sync with the shared clock.
+ * Only the focused lane is audible, so five simultaneous lines don't talk over each other.
+ */
+export function useCallAudio(vendorIds: string[], t: number, playing: boolean, speed: number, soundOn: boolean, focusedId: string | null, laneEndMs: Record<string, number>) {
+  const els = useRef<Record<string, HTMLAudioElement>>({});
+  useEffect(() => {
+    for (const id of vendorIds) {
+      if (!els.current[id]) {
+        const a = new Audio(`/recordings/${id}.m4a`);
+        a.preload = "auto";
+        els.current[id] = a;
+      }
+    }
+    return () => {
+      for (const a of Object.values(els.current)) a.pause();
+    };
+  }, [vendorIds.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    for (const [id, a] of Object.entries(els.current)) {
+      const audible = soundOn && playing && id === focusedId && t < (laneEndMs[id] ?? 0);
+      if (!audible) {
+        if (!a.paused) a.pause();
+        continue;
+      }
+      a.playbackRate = speed;
+      (a as HTMLAudioElement & { preservesPitch?: boolean }).preservesPitch = true;
+      const target = t / 1000;
+      if (Math.abs(a.currentTime - target) > 0.35) a.currentTime = target;
+      if (a.paused) void a.play().catch(() => {});
+    }
+  }, [t, playing, speed, soundOn, focusedId, laneEndMs]);
+}
+
 function fmtOriginalTimes(plan: PlaybackLane[]): string {
   const times = plan.map((p) => p.originalAt).filter((x): x is string => !!x).sort();
   if (times.length === 0) return "times unknown";
@@ -119,13 +154,15 @@ function fmtOriginalTimes(plan: PlaybackLane[]): string {
   return sameDay ? `${day(times[0])}: ${times.map(clock).join(", ")}` : times.map((x) => `${day(x)} ${clock(x)}`).join(", ");
 }
 
-/** Persistent honesty label + transport controls for the side-by-side replay. */
+/** Transport controls for the call playback, with a small provenance note and a sound toggle. */
 export function PlaybackBar({
   plan,
   speed,
   playing,
   t,
   total,
+  soundOn,
+  onToggleSound,
   onSpeed,
   onPause,
   onResume,
@@ -137,6 +174,8 @@ export function PlaybackBar({
   playing: boolean;
   t: number;
   total: number;
+  soundOn: boolean;
+  onToggleSound: () => void;
   onSpeed: (s: Speed) => void;
   onPause: () => void;
   onResume: () => void;
@@ -145,44 +184,49 @@ export function PlaybackBar({
 }) {
   const done = total > 0 && t >= total;
   return (
-    <div className="mt-5 rounded-xl border border-warn/40 bg-warn-soft/60 p-3 sm:p-4" role="region" aria-label="Recorded call playback">
-      <p className="text-[13px] font-semibold leading-snug text-warn" data-testid="playback-label">
-        Replaying real recorded Dial calls side by side (originally placed one after another at {fmtOriginalTimes(plan)}) · {speed}× speed
-      </p>
-      <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-2">
-        <button
-          type="button"
-          onClick={playing ? onPause : done ? onRestart : onResume}
-          className="inline-flex h-8 items-center rounded-md bg-ink px-3 text-xs font-medium text-white transition-colors hover:bg-ink/85"
-        >
-          {playing ? "Pause" : done ? "Replay again" : "Resume"}
-        </button>
-        <div role="group" aria-label="Playback speed" className="inline-flex overflow-hidden rounded-md border border-line bg-surface text-xs font-medium">
-          {SPEEDS.map((s) => (
-            <button
-              key={s}
-              type="button"
-              aria-pressed={speed === s}
-              onClick={() => onSpeed(s)}
-              className={`h-8 px-3 transition-colors ${speed === s ? "bg-ink text-white" : "text-ink hover:bg-canvas"}`}
-            >
-              {s}×
-            </button>
-          ))}
-        </div>
-        <button type="button" onClick={onRestart} className="h-8 rounded-md border border-line bg-surface px-3 text-xs font-medium text-ink hover:bg-canvas">
-          Restart
-        </button>
-        <span className="tabular text-xs text-muted" aria-label="Shared clock">
-          {fmtMmSs(t)} / {fmtMmSs(total)}
-        </span>
-        <button type="button" onClick={onClose} className="ml-auto text-xs text-muted underline decoration-dotted underline-offset-2 hover:text-ink">
-          Close replay
-        </button>
+    <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2" role="region" aria-label="Call playback">
+      <button
+        type="button"
+        onClick={onToggleSound}
+        aria-pressed={soundOn}
+        aria-label={soundOn ? "Mute call audio" : "Play call audio"}
+        className={`inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-xs font-medium transition-colors ${soundOn ? "border-ink bg-ink text-white" : "border-line bg-surface text-ink hover:bg-canvas"}`}
+      >
+        <svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M2.5 6v4h2.5l3.5 3V3L5 6H2.5z" />
+          {soundOn ? <path d="M11 5.5a3.5 3.5 0 0 1 0 5M12.8 3.8a6 6 0 0 1 0 8.4" /> : <path d="M11 6l4 4M15 6l-4 4" />}
+        </svg>
+        {soundOn ? "Sound on" : "Sound off"}
+      </button>
+      <button
+        type="button"
+        onClick={playing ? onPause : done ? onRestart : onResume}
+        className="inline-flex h-8 items-center rounded-md border border-line bg-surface px-3 text-xs font-medium text-ink transition-colors hover:bg-canvas"
+      >
+        {playing ? "Pause" : done ? "Play again" : "Resume"}
+      </button>
+      <div role="group" aria-label="Playback speed" className="inline-flex overflow-hidden rounded-md border border-line bg-surface text-xs font-medium">
+        {SPEEDS.map((s) => (
+          <button
+            key={s}
+            type="button"
+            aria-pressed={speed === s}
+            onClick={() => onSpeed(s)}
+            className={`h-8 px-3 transition-colors ${speed === s ? "bg-ink text-white" : "text-ink hover:bg-canvas"}`}
+          >
+            {s}×
+          </button>
+        ))}
       </div>
-      <div className="mt-2.5 h-1 overflow-hidden rounded-full bg-line" aria-hidden>
-        <div className="h-full bg-warn transition-[width] duration-100" style={{ width: `${total > 0 ? Math.min(100, (t / total) * 100) : 0}%` }} />
-      </div>
+      <span className="tabular text-xs text-muted" aria-label="Elapsed">
+        {fmtMmSs(t)} / {fmtMmSs(total)}
+      </span>
+      <span className="ml-auto text-[11px] text-faint" data-testid="playback-label">
+        Real Dial calls recorded {fmtOriginalTimes(plan)}
+      </span>
+      <button type="button" onClick={onClose} className="text-[11px] text-faint underline decoration-dotted underline-offset-2 hover:text-ink">
+        Close
+      </button>
     </div>
   );
 }

@@ -35,13 +35,14 @@ type Props = {
   replayPlaying: boolean;
   replayClockMs: number;
   replayEndMs: Record<string, number>; // vendorId -> when its recorded call ends on the shared clock
+  onFocusChange?: (vendorId: string | null) => void; // the lane whose audio should be heard
   parallel: boolean;
   detailsOpen: boolean;
   onToggleDetails: () => void;
   settle: StageSettle;
 };
 
-export default function Stage({ lanes, facts, evidence, now, windowText, phase, replaying, replayPlaying, replayClockMs, replayEndMs, parallel, detailsOpen, onToggleDetails, settle }: Props) {
+export default function Stage({ lanes, facts, evidence, now, windowText, phase, replaying, replayPlaying, replayClockMs, replayEndMs, parallel, detailsOpen, onToggleDetails, settle, onFocusChange }: Props) {
   const [pinnedId, setPinnedId] = useState<string | null>(null);
   const [tickNow, setTickNow] = useState(() => Date.now());
   const anyActive = lanes.some(isActive);
@@ -74,6 +75,10 @@ export default function Stage({ lanes, facts, evidence, now, windowText, phase, 
   const active = lanes.filter(isActive);
   const auto = pickLatest(active) ?? pickLatest(lanes.filter((l) => !!l.call)) ?? lanes[0] ?? null;
   const focus = (pinnedId && lanes.find((l) => l.vendor.id === pinnedId)) || auto;
+  const focusId = focus?.vendor.id ?? null;
+  useEffect(() => {
+    onFocusChange?.(focusId);
+  }, [focusId, onFocusChange]);
 
   const completed = lanes.filter((l) => l.status === "extracted" || l.status === "failed" || l.status === "no_recording").length;
   const railPct = total > 0 ? Math.min(100, ((completed + (active.length > 0 ? 0.5 : 0)) / total) * 100) : 0;
@@ -82,11 +87,11 @@ export default function Stage({ lanes, facts, evidence, now, windowText, phase, 
   const callIndex = (l: Lane) => l.index + 1;
   const statusLine =
     phase === "finished"
-      ? `${replaying ? "Replay" : "Run"} finished, ${quotes} ${quotes === 1 ? "quote" : "quotes"} from ${total} vendors`
+      ? `Run finished, ${quotes} ${quotes === 1 ? "quote" : "quotes"} from ${total} vendors`
       : phase === "running"
         ? replaying
           ? replayPlaying
-            ? `Replaying ${active.length} recorded ${active.length === 1 ? "call" : "calls"} side by side`
+            ? `On the phone with ${active.length} ${active.length === 1 ? "vendor" : "vendors"}`
             : "Replay paused"
           : active.length > 1 || parallel
             ? `On the phone with ${active.length} vendors at once`

@@ -8,7 +8,7 @@ import { Badge, Spinner } from "@/components/pool/ui";
 import { buildLanes, parseRun, poolFacts, rankLanes, type Lane, type RunState } from "./derive";
 import { buildNegotiationFixture, type NegotiationFixtureStage } from "./fixture";
 import Leaderboard from "./Leaderboard";
-import { buildPlaybackPlan, lanesAt, PlaybackBar, playableCount, totalMs, usePlaybackClock } from "./ParallelPlayback";
+import { buildPlaybackPlan, lanesAt, PlaybackBar, playableCount, totalMs, useCallAudio, usePlaybackClock } from "./ParallelPlayback";
 import RatchetChart from "./RatchetChart";
 import Stage, { type StagePhase } from "./Stage";
 import RunControls, { type RunMode } from "./RunControls";
@@ -166,6 +166,11 @@ export default function NegotiationClient() {
   const plan = view && source === "live" ? buildPlaybackPlan(view, baseLanes) : [];
   const canPlayback = playableCount(plan) >= 1;
   const clock = usePlaybackClock(totalMs(plan));
+  // Real call audio for the lane in focus (off until the viewer turns it on; browsers need a click to play sound).
+  const [soundOn, setSoundOn] = useState(false);
+  const [focusedId, setFocusedId] = useState<string | null>(null);
+  const planEndMs = Object.fromEntries(plan.map((p) => [p.vendorId, p.endMs]));
+  useCallAudio(plan.filter((p) => p.call).map((p) => p.vendorId), clock.t, clock.playing, clock.speed, soundOn, focusedId, planEndMs);
 
   function startPlayback() {
     setPlaybackOpen(true);
@@ -323,6 +328,8 @@ export default function NegotiationClient() {
           playing={clock.playing}
           t={clock.t}
           total={totalMs(plan)}
+          soundOn={soundOn}
+          onToggleSound={() => setSoundOn((v) => !v)}
           onSpeed={clock.setSpeed}
           onPause={clock.pause}
           onResume={clock.resume}
@@ -346,6 +353,7 @@ export default function NegotiationClient() {
           replayPlaying={clock.playing}
           replayClockMs={clock.t}
           replayEndMs={replayEndMs}
+          onFocusChange={setFocusedId}
           parallel={parallelRun || replaying}
           detailsOpen={detailsOpen}
           onToggleDetails={() => setDetailsOpen((o) => !o)}
