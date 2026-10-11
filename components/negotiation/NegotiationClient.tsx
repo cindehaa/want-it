@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { DemandEvidence, PoolView } from "@/lib/contracts";
 import { getJson, postJson } from "@/components/pool/api";
@@ -9,8 +8,9 @@ import { Badge, Spinner } from "@/components/pool/ui";
 import { buildLanes, parseRun, poolFacts, rankLanes, type Lane, type RunState } from "./derive";
 import { buildNegotiationFixture, type NegotiationFixtureStage } from "./fixture";
 import Leaderboard from "./Leaderboard";
-import { BestDealBanner, buildPlaybackPlan, lanesAt, PlaybackBar, playableCount, totalMs, usePlaybackClock } from "./ParallelPlayback";
+import { buildPlaybackPlan, lanesAt, PlaybackBar, playableCount, totalMs, usePlaybackClock } from "./ParallelPlayback";
 import RatchetChart from "./RatchetChart";
+import Stage, { type StagePhase } from "./Stage";
 import RunControls, { type RunMode } from "./RunControls";
 import TimePanel from "./TimePanel";
 import VendorLane, { type PersonaView, type VendorMode } from "./VendorLane";
@@ -74,6 +74,9 @@ export default function NegotiationClient() {
   const [runError, setRunError] = useState<string | null>(null);
   const [runChecked, setRunChecked] = useState(false);
   const [playbackOpen, setPlaybackOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [settleBusy, setSettleBusy] = useState(false);
+  const [settleError, setSettleError] = useState<string | null>(null);
   const everLive = useRef(false);
   const forced = useRef(false);
   const autoplayHandled = useRef(false);
@@ -171,16 +174,42 @@ export default function NegotiationClient() {
   startPlaybackRef.current = startPlayback;
 
   // /negotiation?autoplay=1: no click needed. A live run already in progress is shown live instead.
+  // With no finished calls in the DB yet, the real recordings are loaded first (a replay run), then played side by side.
+  const startRunRef = useRef(startRun);
+  startRunRef.current = startRun;
+  const seededReplay = useRef(false);
   useEffect(() => {
     if (autoplayHandled.current || !view || source !== "live" || !runChecked) return;
     if (new URLSearchParams(window.location.search).get("autoplay") !== "1") {
       autoplayHandled.current = true;
       return;
     }
-    autoplayHandled.current = true;
-    if (run?.running) return; // show it live
-    if (canPlayback) startPlaybackRef.current();
+    if (run?.running) {
+      if (!seededReplay.current) autoplayHandled.current = true; // a live run is already in progress: just show it live
+      return;
+    }
+    if (canPlayback) {
+      autoplayHandled.current = true;
+      startPlaybackRef.current();
+      return;
+    }
+    if (!seededReplay.current) {
+      seededReplay.current = true;
+      void startRunRef.current("replay");
+    }
   }, [view, source, runChecked, run, canPlayback]);
+
+  async function settlePool() {
+    setSettleBusy(true);
+    setSettleError(null);
+    const res = await postJson("/api/pool/settle", {});
+    setSettleBusy(false);
+    if (!res.ok) {
+      setSettleError(res.error);
+      return;
+    }
+    void poolRef.current();
+  }
 
   async function startRun(mode: RunMode) {
     setPending(mode);
@@ -221,18 +250,23 @@ export default function NegotiationClient() {
   const liveBest = rankLanes(liveLanes)[0]?.eligible ? rankLanes(liveLanes)[0] : null;
   const firstWaiting = lanes.find((l) => l.status === "waiting");
   const parallelRun = !!run?.parallel;
-  // The run/replay is over: show the best deal prominently.
-  const runFinished = !replaying && !running && !!run?.finishedAt;
+  // The run/replay is over: show the best deal prominently (Stage header + footer).
+  const anyCalling = lanes.some((l) => l.status === "calling" || l.status === "transcribing");
+  const runFinished = !replaying && !running && !anyCalling && (!!run?.finishedAt || lanes.some((l) => l.eligible));
   const showBest: Lane | null = replaying ? (clock.finished ? best : null) : runFinished ? liveBest : null;
+  const phase: StagePhase = replaying ? (clock.finished ? "finished" : "running") : running || anyCalling ? "running" : runFinished ? "finished" : "idle";
   const closesInMs = new Date(view.pool.windowClosesAt).getTime() - new Date(view.now).getTime();
   const closed = view.pool.status === "settled" || closesInMs <= 0;
+  const settled = view.pool.status === "settled";
+  const settleReady = source === "live" && !running && !replaying && !!liveBest && !settled;
+  const replayEndMs = Object.fromEntries(plan.map((p) => [p.vendorId, p.endMs]));
 
   return (
-    <main className="mx-auto w-full max-w-[1400px] px-4 pb-14 pt-5 sm:px-6">
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+    <main className="mx-auto w-full max-w-[1180px] px-4 pb-14 pt-6 sm:px-6">
+      <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-[22px] font-semibold leading-tight tracking-tight">Behind the scenes: our agents negotiate for {facts.startups} startups</h1>
+            <h1 className="text-[15px] font-semibold leading-tight tracking-tight">Behind the scenes: our agents negotiate for {facts.startups} startups</h1>
             {source === "fixture" && (
               <Badge tone="warn" title="The pool API is unreachable, so this is local sample data. No real calls were made.">
                 fixture data
@@ -243,22 +277,16 @@ export default function NegotiationClient() {
                 reconnecting
               </Badge>
             )}
-            <RunBadge run={run} lanes={lanes} />
+            {!replaying && <RunBadge run={run} lanes={lanes} />}
           </div>
-          <p className="mt-0.5 text-sm text-muted">
+          <p className="mt-0.5 text-[13px] text-muted">
             The marketplace dispatches the agents automatically; buyers never start a negotiation.{" "}
             {replaying
-              ? `Each of the ${lanes.length} vendors has its own phone line below.`
+              ? `Each of the ${lanes.length} vendors has its own phone line.`
               : parallelRun
                 ? `Our agents phone all ${lanes.length} test vendors at once, one phone line each.`
                 : `Our agent phones ${lanes.length} test vendors, each call citing the best offer so far.`}
           </p>
-          <dl className="mt-3 flex flex-wrap gap-x-7 gap-y-2">
-            <Fact value={String(facts.startups)} label="startups pooled" />
-            <Fact value={String(facts.seats)} label="seats in the pool" />
-            <Fact value={closed ? "Closed" : fmtRemaining(closesInMs)} label={closed ? "pooling window" : "until the window closes"} />
-          </dl>
-          <Leverage evidence={view.evidence} now={view.now} />
         </div>
         {showControls && (
           <RunControls
@@ -292,17 +320,41 @@ export default function NegotiationClient() {
         />
       )}
 
-      {showBest && (
-        <div>
-          <BestDealBanner best={showBest} vendorCount={lanes.length} replay={replaying} />
-          <p className="mt-2 text-xs text-muted">
-            <Link href="/pool" className="underline decoration-dotted underline-offset-2 hover:text-ink">
-              See the settlement on the marketplace
-            </Link>
-          </p>
-        </div>
-      )}
+      <div className="mt-6">
+        <Stage
+          lanes={lanes}
+          facts={facts}
+          evidence={view.evidence}
+          now={view.now}
+          windowText={closed ? "closed" : fmtRemaining(closesInMs)}
+          phase={phase}
+          replaying={replaying}
+          replayPlaying={clock.playing}
+          replayClockMs={clock.t}
+          replayEndMs={replayEndMs}
+          parallel={parallelRun || replaying}
+          detailsOpen={detailsOpen}
+          onToggleDetails={() => setDetailsOpen((o) => !o)}
+          settle={{
+            disabled: !settleReady || settleBusy,
+            busy: settleBusy,
+            settled,
+            label: settled ? "Pool settled" : liveBest?.eff ? `Settle pool at ${usdSeat(liveBest.eff.effectiveCents)}` : "Settle pool",
+            error: settleError,
+            onClick: () => void settlePool(),
+          }}
+        />
+      </div>
 
+      {detailsOpen && (
+      <div id="negotiation-details" className="mt-8 border-t border-line pt-6">
+      <h2 className="text-sm font-semibold">Details: transcripts, quotes, vendor policies</h2>
+      <dl className="mt-3 flex flex-wrap gap-x-7 gap-y-2">
+        <Fact value={String(facts.startups)} label="startups pooled" />
+        <Fact value={String(facts.seats)} label="seats in the pool" />
+        <Fact value={closed ? "Closed" : fmtRemaining(closesInMs)} label={closed ? "pooling window" : "until the window closes"} />
+      </dl>
+      <Leverage evidence={view.evidence} now={view.now} />
       <section aria-label="Vendor calls" className="mt-6 grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3">
         {lanes.map((l) => {
           const planLane = replaying ? plan.find((p) => p.vendorId === l.vendor.id) : null;
@@ -343,7 +395,8 @@ export default function NegotiationClient() {
         <TimePanel view={view} vendorCount={lanes.length} />
       </div>
 
-      <SettleFooter view={view} best={liveBest} running={running || replaying} live={source === "live"} onSettled={() => void poolRef.current()} />
+      </div>
+      )}
     </main>
   );
 }
@@ -405,77 +458,5 @@ function Leverage({ evidence, now }: { evidence: DemandEvidence; now: string }) 
         {evidence.isSyntheticHistory && <Badge tone="neutral">Synthetic history</Badge>}
       </span>
     </div>
-  );
-}
-
-function SettleFooter({
-  view,
-  best,
-  running,
-  live,
-  onSettled,
-}: {
-  view: PoolView;
-  best: Lane | null;
-  running: boolean;
-  live: boolean;
-  onSettled: () => void;
-}) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const settled = view.pool.status === "settled";
-
-  async function settle() {
-    setBusy(true);
-    setError(null);
-    const res = await postJson("/api/pool/settle", {});
-    setBusy(false);
-    if (!res.ok) {
-      setError(res.error);
-      return;
-    }
-    onSettled();
-  }
-
-  return (
-    <section aria-label="Settle the pool" className="mt-6 flex flex-col gap-3 rounded-xl border border-line bg-surface p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
-      <div className="min-w-0 text-sm">
-        {settled ? (
-          <p>
-            <span className="font-semibold">Pool settled.</span> <span className="text-muted">Each startup now has its final price and its own account link.</span>
-          </p>
-        ) : best && best.eff ? (
-          <p>
-            <span className="font-semibold">Best deal: {best.vendor.name} at {usdSeat(best.eff.effectiveCents)} per seat.</span>{" "}
-            <span className="text-muted">
-              Settling applies it to every pooled startup whose own price cap allows it. Anyone above their cap is canceled and their hold released.
-            </span>
-          </p>
-        ) : (
-          <p className="text-muted">No ranked quote yet. Settling now would leave every startup at list price.</p>
-        )}
-        {error && (
-          <p role="alert" className="mt-2 max-w-xl break-words rounded-md border border-danger/30 bg-danger-soft px-2.5 py-1.5 text-xs text-danger">
-            {error}
-          </p>
-        )}
-      </div>
-      <div className="flex shrink-0 flex-wrap items-center gap-3">
-        {!settled && (
-          <button
-            type="button"
-            onClick={settle}
-            disabled={busy || running || !best || !live}
-            className="inline-flex h-10 items-center gap-2 rounded-md bg-ink px-4 text-sm font-medium text-white transition-colors hover:bg-ink/85 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {busy && <Spinner />}
-            Settle pool with best deal
-          </button>
-        )}
-        <Link href="/pool" className="text-sm font-medium text-accent-strong underline underline-offset-2 hover:text-accent">
-          {settled ? "See final prices on the marketplace" : "Open the marketplace"}
-        </Link>
-      </div>
-    </section>
   );
 }

@@ -21,7 +21,7 @@ const STATUS: Record<LaneStatus, { label: string; tone: "neutral" | "accent" | "
 
 const RECENT_TURNS = 6;
 
-function isAgent(speaker: string): boolean {
+export function isAgent(speaker: string): boolean {
   return /agent|assistant|\bai\b|bot|dial|want-?it/i.test(speaker);
 }
 
