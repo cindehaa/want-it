@@ -14,7 +14,7 @@ const Receipt = z.object({
 async function main() {
   loadEnv();
   const dryRun = !process.argv.includes("--send");
-  const file = path.join(process.cwd(), "data", "keewano-backfill-receipt.json");
+  const file = path.join(process.cwd(), "lib", "keewano", ".runtime", "backfill.json");
   let receipt: z.infer<typeof Receipt>;
   try { receipt = Receipt.parse(JSON.parse(await readFile(file, "utf8"))); }
   catch (error) {
