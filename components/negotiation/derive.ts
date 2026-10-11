@@ -1,7 +1,9 @@
 // Pure derivations for the negotiation room. Price semantics mirror lib/settle/index.ts:
 // tierPrice = lowest price among tiers whose minSeats <= pool seats; effective = tier + perAccountFee / seats-per-buyer.
 import benchmark from "@/data/benchmark.json";
-import type { Call, PoolView, Quote, Vendor } from "@/lib/contracts";
+import type { Call, Order, PoolView, Quote, Vendor } from "@/lib/contracts";
+import { effectiveAllIn } from "@/lib/dial/prompt";
+import { listPriceFor } from "@/lib/vendors";
 export { callMinutes } from "@/lib/dial/duration";
 
 export type RunState = {
@@ -42,12 +44,12 @@ export function poolFacts(view: PoolView): PoolFacts {
 
 export type Effective = { tierCents: number; feePerSeatCents: number; effectiveCents: number; appliedMinSeats: number };
 
-export function effectiveFor(q: Quote, facts: PoolFacts): Effective | null {
-  const tier = tierPrice(q, facts.seats);
-  if (tier == null) return null;
-  const applied = q.tiers.find((t) => t.pricePerSeatCents === tier && facts.seats >= t.minSeats);
-  const feePerSeatCents = q.perAccountFeeCents / Math.max(1, facts.avgSeats);
-  return { tierCents: tier, feePerSeatCents, effectiveCents: Math.round(tier + feePerSeatCents), appliedMinSeats: applied?.minSeats ?? 0 };
+export function effectiveFor(q: Quote, members: Order[], at: Date): Effective | null {
+  const offer = effectiveAllIn(q, members, at);
+  if (!offer) return null;
+  const tier = offer.tierPricePerSeatCents;
+  const applied = q.tiers.find((t) => t.pricePerSeatCents === tier && offer.seats >= t.minSeats);
+  return { tierCents: tier, feePerSeatCents: offer.allInPerSeatCents - tier, effectiveCents: offer.allInPerSeatCents, appliedMinSeats: applied?.minSeats ?? 0 };
 }
 
 export type LaneStatus = "waiting" | "calling" | "transcribing" | "extracted" | "failed" | "no_recording";
@@ -105,14 +107,15 @@ export function orderVendors(view: PoolView, run: RunState | null): Vendor[] {
 }
 
 export function buildLanes(view: PoolView, run: RunState | null): Lane[] {
-  const facts = poolFacts(view);
+  const ids = new Set(view.pool.memberOrderIds);
+  const members = view.orders.filter((o) => ids.has(o.id));
   const vendors = orderVendors(view, run);
   let best: number | null = null;
   return vendors.map((vendor, index) => {
     const calls = view.calls.filter((c) => c.vendorId === vendor.id).sort((a, b) => b.sequence - a.sequence);
     const call = calls[0] ?? null;
     const quote = call ? (view.quotes.find((q) => q.callId === call.id) ?? null) : null;
-    const eff = quote ? effectiveFor(quote, facts) : null;
+    const eff = quote ? effectiveFor(quote, members, new Date(view.now)) : null;
     const eligible = !!quote && quote.separateAccountsConfirmed === true && !!eff;
     const lane: Lane = { vendor, index, call, quote, status: laneStatus(call, run, vendor.id), eff, eligible, bestBefore: best };
     if (eligible && eff && (best == null || eff.effectiveCents < best)) best = eff.effectiveCents;
@@ -131,7 +134,7 @@ export type ChartPoint = { label: string; best: number | null; offer: number | n
 
 /** "Best offer so far" per call, in lane order. Dollars per seat. Uncalled vendors stay null so the line grows. */
 export function ratchetSeries(lanes: Lane[]): { points: ChartPoint[]; lowestList: number } {
-  const lowestList = Math.min(...lanes.map((l) => l.vendor.listPricePerSeatCents));
+  const lowestList = listPriceFor(lanes[0]?.vendor.category ?? "soc2_compliance", null);
   const points: ChartPoint[] = [{ label: "List", best: lowestList / 100, offer: null }];
   let best = lowestList;
   for (const l of lanes) {

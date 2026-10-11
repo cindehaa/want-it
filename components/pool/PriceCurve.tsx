@@ -4,6 +4,9 @@ import { useMemo } from "react";
 import { CartesianGrid, ComposedChart, Line, ReferenceDot, ReferenceLine, ResponsiveContainer, XAxis, YAxis } from "recharts";
 import type { PoolView, Quote } from "@/lib/contracts";
 import { usdSeat } from "./format";
+import { effectiveAllIn } from "@/lib/dial/prompt";
+import { quoteIsValid } from "@/lib/settle";
+import { listPriceFor } from "@/lib/vendors";
 
 type Row = { x: number } & Record<string, number | null | undefined>;
 
@@ -13,19 +16,14 @@ const SLATE = "#64748b";
 const GRID = "#e8ebee";
 const VENDOR_COLOR: Record<string, string> = { certly: ACCENT, vantly: INK };
 
-function tierPrice(q: Quote, seats: number): number | null {
-  const ok = q.tiers.filter((t) => seats >= t.minSeats).sort((a, b) => a.pricePerSeatCents - b.pricePerSeatCents);
-  return ok[0]?.pricePerSeatCents ?? null;
-}
-
 export default function PriceCurve({ view }: { view: PoolView }) {
   const { pool, orders, vendors, quotes } = view;
   const total = pool.totalSeats;
 
   const model = useMemo(() => {
     const listFor = (preferred: string | null) => {
-      const vs = vendors.filter((v) => (!preferred || v.id === preferred) && v.category === pool.category);
-      return vs.length ? Math.min(...vs.map((v) => v.listPricePerSeatCents)) : 3000;
+      const price = listPriceFor(pool.category, preferred);
+      return Number.isFinite(price) ? price : 3000;
     };
     const listCents = listFor(null);
     const memberIds = new Set(pool.memberOrderIds);
@@ -50,6 +48,7 @@ export default function PriceCurve({ view }: { view: PoolView }) {
     // Latest quote per vendor.
     const latest = new Map<string, Quote>();
     [...quotes]
+      .filter((q) => quoteIsValid(q, new Date(view.now)))
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
       .forEach((q) => latest.set(q.vendorId, q));
     const lastMin = Math.max(0, ...[...latest.values()].flatMap((q) => q.tiers.map((t) => t.minSeats)));
@@ -72,7 +71,7 @@ export default function PriceCurve({ view }: { view: PoolView }) {
         pts,
         labelAt: lastTier ? { x: (lastTier.minSeats + xMax) / 2, y: lastTier.pricePerSeatCents / 100 } : null,
         labelPos: i % 2 === 0 ? ("top" as const) : ("bottom" as const),
-        atTotal: tierPrice(q, total),
+        atTotal: effectiveAllIn(q, members, new Date(view.now))?.allInPerSeatCents ?? null,
         vendorName: vendor?.name ?? q.vendorId,
       };
     });
@@ -90,7 +89,7 @@ export default function PriceCurve({ view }: { view: PoolView }) {
       .sort((a, b) => (a.atTotal as number) - (b.atTotal as number))[0];
 
     return { listCents, rows, vendorLines, xMax, yLo, yHi, best };
-  }, [orders, pool, quotes, total, vendors]);
+  }, [orders, pool, quotes, total, vendors, view.now]);
 
   const { listCents, rows, vendorLines, xMax, yLo, yHi, best } = model;
   const hasQuotes = vendorLines.length > 0;
@@ -103,8 +102,8 @@ export default function PriceCurve({ view }: { view: PoolView }) {
           {hasQuotes
             ? best
               ? `At ${total} seats the best quote is ${usdSeat(best.atTotal as number)} a seat from ${best.vendorName}, down from ${usdSeat(listCents)} list.`
-              : "Pool is below the first tier of every quote."
-            : "Waiting for vendor quotes"}
+              : "No quote meets buyers' price caps and the required volume."
+            : quotes.length > 0 ? "No current quote meets expiry and separate-account requirements." : "Waiting for vendor quotes"}
         </p>
       </div>
       <div className="h-[260px] w-full min-w-0 px-1 pb-1 pt-2 sm:px-2">

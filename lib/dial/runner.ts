@@ -291,7 +291,7 @@ export function runView(): RunView {
       callStatus: last?.status ?? null,
       source: last?.source ?? null,
       error: state === "no_recording" ? `No recorded call for ${v?.name ?? id}; nothing was fabricated. Run in live mode to get a real quote.` : (last?.error ?? null),
-      quote: q ? { tiers: q.tiers, perAccountFeeCents: q.perAccountFeeCents, conditions: q.conditions, allInPerSeatCents: effectiveAllIn(q, members)?.allInPerSeatCents ?? null } : null,
+      quote: q ? { tiers: q.tiers, perAccountFeeCents: q.perAccountFeeCents, conditions: q.conditions, allInPerSeatCents: effectiveAllIn(q, members, now())?.allInPerSeatCents ?? null } : null,
     };
   });
   const bestQ = bestEffectiveQuote(poolQuotes, members, { now: now() });
