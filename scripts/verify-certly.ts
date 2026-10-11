@@ -25,17 +25,15 @@ async function main() {
   const buyer = await api<Order>("POST", "/api/orders", { idempotencyKey: crypto.randomUUID(), buyerName: "Certly verification buyer", category: "soc2_compliance", seats: 10, maxPricePerSeatCents: 2400, preferredVendorId: null });
   assert.equal(buyer.holdAmountCents, 24000);
 
-  let run = await api<RunView>("POST", "/api/pool/negotiate-all", { mode: "replay" });
-  const deadline = Date.now() + 180_000;
-  while (run.running && Date.now() < deadline) {
-    console.log(`Replay progress: ${run.progress.completed}/${run.progress.total} vendors complete`);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    run = await api<RunView>("GET", "/api/pool/negotiate-all");
-  }
+  const started = await api<Call>("POST", "/api/pool/negotiate", { mode: "replay", vendorId: "certly" });
+  const extracted = await api<{ call: Call; quote: Quote | null }>("GET", `/api/calls/${started.id}`);
+  assert.equal(extracted.call.status, "extracted", extracted.call.error ?? "Extraction must complete.");
+  const run = await api<RunView>("GET", "/api/pool/negotiate-all");
   assert.equal(run.running, false, "Replay run must finish without placing any live calls.");
-  assert.equal(run.error, null);
+  assert.equal(run.run?.error ?? null, null);
   assert.equal(run.progress.vendors.find((v) => v.vendorId === "certly")?.state, "done");
   const view = await api<PoolView>("GET", "/api/pool");
+  assert.equal(view.calls.length, 1, "This check only replays Certly. Keep AUTO_NEGOTIATE=off on the test server.");
   const call = Call.parse(view.calls.find((c) => c.vendorId === "certly"));
   const quote = Quote.parse(view.quotes.find((q) => q.callId === call.id));
   assert.equal(call.source, "recorded_replay");
