@@ -1,0 +1,176 @@
+// Pure derivations for the negotiation room. Price semantics mirror lib/settle/index.ts:
+// tierPrice = lowest price among tiers whose minSeats <= pool seats; effective = tier + perAccountFee / seats-per-buyer.
+import benchmark from "@/data/benchmark.json";
+import type { Call, PoolView, Quote, Vendor } from "@/lib/contracts";
+
+export type RunState = {
+  running: boolean;
+  mode: string;
+  order: string[];
+  startedAt: string | null;
+  finishedAt: string | null;
+};
+
+export function parseRun(v: unknown): RunState | null {
+  const o = v as Record<string, unknown> | null;
+  if (!o || typeof o !== "object") return null;
+  // Tolerate both a bare run object and { run: {...} }.
+  const r = (o.run && typeof o.run === "object" ? (o.run as Record<string, unknown>) : o) as Record<string, unknown>;
+  if (typeof r.running !== "boolean") return null;
+  return {
+    running: r.running,
+    mode: typeof r.mode === "string" ? r.mode : "live",
+    order: Array.isArray(r.order) ? r.order.filter((x): x is string => typeof x === "string") : [],
+    startedAt: typeof r.startedAt === "string" ? r.startedAt : null,
+    finishedAt: typeof r.finishedAt === "string" ? r.finishedAt : null,
+  };
+}
+
+export function tierPrice(q: Quote, seats: number): number | null {
+  const ok = q.tiers.filter((t) => seats >= t.minSeats).sort((a, b) => a.pricePerSeatCents - b.pricePerSeatCents);
+  return ok[0]?.pricePerSeatCents ?? null;
+}
+
+export type PoolFacts = { startups: number; seats: number; avgSeats: number };
+
+export function poolFacts(view: PoolView): PoolFacts {
+  const startups = view.pool.memberOrderIds.length;
+  const seats = view.pool.totalSeats;
+  return { startups, seats, avgSeats: startups > 0 ? seats / startups : seats || 1 };
+}
+
+export type Effective = { tierCents: number; feePerSeatCents: number; effectiveCents: number; appliedMinSeats: number };
+
+export function effectiveFor(q: Quote, facts: PoolFacts): Effective | null {
+  const tier = tierPrice(q, facts.seats);
+  if (tier == null) return null;
+  const applied = q.tiers.find((t) => t.pricePerSeatCents === tier && facts.seats >= t.minSeats);
+  const feePerSeatCents = q.perAccountFeeCents / Math.max(1, facts.avgSeats);
+  return { tierCents: tier, feePerSeatCents, effectiveCents: Math.round(tier + feePerSeatCents), appliedMinSeats: applied?.minSeats ?? 0 };
+}
+
+export type LaneStatus = "waiting" | "calling" | "transcribing" | "extracted" | "failed" | "no_recording";
+
+export type Lane = {
+  vendor: Vendor;
+  index: number;
+  call: Call | null;
+  quote: Quote | null;
+  status: LaneStatus;
+  eff: Effective | null;
+  /** Counts toward the ranking: separate accounts confirmed (SPEC section 4) and a tier exists at pool size. */
+  eligible: boolean;
+  /** Best effective price (cents) from earlier lanes: what the agent could cite entering this call. */
+  bestBefore: number | null;
+};
+
+function laneStatus(call: Call | null, run: RunState | null, vendorId: string): LaneStatus {
+  if (!call) {
+    if (run && !run.running && run.finishedAt && run.order.includes(vendorId)) {
+      return run.mode === "replay" ? "no_recording" : "failed";
+    }
+    return "waiting";
+  }
+  switch (call.status) {
+    case "queued":
+    case "in_progress":
+      return "calling";
+    case "ended":
+    case "transcribed":
+      return "transcribing";
+    case "extracted":
+      return "extracted";
+    case "failed":
+      return /no (recorded|recording)|recording (not|missing)|nothing recorded/i.test(call.error ?? "") ? "no_recording" : "failed";
+  }
+}
+
+/** Lane order: the run's order when known, else the vendors' call sequence, then anything left. */
+export function orderVendors(view: PoolView, run: RunState | null): Vendor[] {
+  const byId = new Map(view.vendors.map((v) => [v.id, v]));
+  const out: Vendor[] = [];
+  const seen = new Set<string>();
+  const push = (id: string) => {
+    const v = byId.get(id);
+    if (v && !seen.has(id)) {
+      seen.add(id);
+      out.push(v);
+    }
+  };
+  if (run && run.order.length > 0) run.order.forEach(push);
+  else [...view.calls].sort((a, b) => a.sequence - b.sequence).forEach((c) => push(c.vendorId));
+  view.vendors.forEach((v) => push(v.id));
+  return out;
+}
+
+export function buildLanes(view: PoolView, run: RunState | null): Lane[] {
+  const facts = poolFacts(view);
+  const vendors = orderVendors(view, run);
+  let best: number | null = null;
+  return vendors.map((vendor, index) => {
+    const calls = view.calls.filter((c) => c.vendorId === vendor.id).sort((a, b) => b.sequence - a.sequence);
+    const call = calls[0] ?? null;
+    const quote = call ? (view.quotes.find((q) => q.callId === call.id) ?? null) : null;
+    const eff = quote ? effectiveFor(quote, facts) : null;
+    const eligible = !!quote && quote.separateAccountsConfirmed === true && !!eff;
+    const lane: Lane = { vendor, index, call, quote, status: laneStatus(call, run, vendor.id), eff, eligible, bestBefore: best };
+    if (eligible && eff && (best == null || eff.effectiveCents < best)) best = eff.effectiveCents;
+    return lane;
+  });
+}
+
+/** Ranked by effective price; vendors without an eligible quote follow in lane order. */
+export function rankLanes(lanes: Lane[]): Lane[] {
+  const ranked = lanes.filter((l) => l.eligible).sort((a, b) => (a.eff?.effectiveCents ?? 0) - (b.eff?.effectiveCents ?? 0));
+  const rest = lanes.filter((l) => !l.eligible);
+  return [...ranked, ...rest];
+}
+
+export type ChartPoint = { label: string; best: number | null; offer: number | null };
+
+/** "Best offer so far" per call, in lane order. Dollars per seat. Uncalled vendors stay null so the line grows. */
+export function ratchetSeries(lanes: Lane[]): { points: ChartPoint[]; lowestList: number } {
+  const lowestList = Math.min(...lanes.map((l) => l.vendor.listPricePerSeatCents));
+  const points: ChartPoint[] = [{ label: "List", best: lowestList / 100, offer: null }];
+  let best = lowestList;
+  for (const l of lanes) {
+    const done = l.status === "extracted" || l.status === "failed" || l.status === "no_recording";
+    if (!done) {
+      points.push({ label: l.vendor.name, best: null, offer: null });
+      continue;
+    }
+    let offer: number | null = null;
+    if (l.eligible && l.eff) {
+      offer = l.eff.effectiveCents;
+      best = Math.min(best, offer);
+    }
+    points.push({ label: l.vendor.name, best: best / 100, offer: offer == null ? null : offer / 100 });
+  }
+  return { points, lowestList };
+}
+
+/** Minutes the agent spent on a call: wall clock when both timestamps exist, else the transcript length. */
+export function callMinutes(c: Call, nowIso: string): number {
+  const start = new Date(c.startedAt).getTime();
+  const end = c.endedAt ? new Date(c.endedAt).getTime() : c.status === "in_progress" || c.status === "queued" ? new Date(nowIso).getTime() : NaN;
+  const wall = Number.isFinite(start) && Number.isFinite(end) ? (end - start) / 60000 : 0;
+  const lastTurn = c.transcriptTurns.reduce((m, t) => Math.max(m, t.startMs), 0) / 60000;
+  return Math.max(wall, lastTurn, 0);
+}
+
+const HUMAN_STEP_IDS = ["contact_sales", "sales_call", "negotiate"] as const;
+
+export type HumanBaseline = {
+  perVendorMinutes: number;
+  steps: { id: string; label: string; minutes: number }[];
+  isEstimate: boolean;
+};
+
+export function humanBaseline(): HumanBaseline {
+  const steps = HUMAN_STEP_IDS.map((id) => benchmark.steps.find((s) => s.id === id)).filter((s): s is (typeof benchmark.steps)[number] => !!s);
+  return {
+    perVendorMinutes: steps.reduce((s, x) => s + x.baselineMinutesPerBuyer, 0),
+    steps: steps.map((s) => ({ id: s.id, label: s.label, minutes: s.baselineMinutesPerBuyer })),
+    isEstimate: steps.some((s) => s.kind === "estimate"),
+  };
+}
