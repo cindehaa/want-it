@@ -47,7 +47,7 @@ graph TD
 | L4 | L | V1 | 2:55 | doing | L0, T1 | `lib/dial/**`, `app/api/pool/negotiate/**`, `app/api/calls/**` | Real outbound call placed and transcript polled. |
 | L5 | L | V1 | 3:05 | doing | L4 | `lib/quote/**`, `lib/settle/**`, `app/api/pool/settle/**` | Transcript → Quote (Claude); settle applies SPEC §4 rules. |
 | L6 | L | V1 | 3:10 | doing | L5, T4 | `app/pool/**`, `components/**` | Call panel + transcript + quote cards + time-saved counter. |
-| X1 | L+T | V1 | 3:15 | todo | L6 | — | One real call answered by T as Certly; stored for replay (`source: recorded_replay`). |
+| X1 | L | V1 | 3:15 | todo | L6, T1 | — | One real Dial call A→B with AI Certly persona; stored for replay (`source: recorded_replay`). Human fallback if AI vendor fails. |
 | L7 | L | V2 | 3:30 | todo | T3, V1 | `lib/dial/prompt.ts`, `app/pool/**`, order routes | Evidence numbers appear in call instruction + evidence card; events recorded on order/cancel. |
 | L8 | L | V2 | 3:40 | todo | V1 | `lib/dial/prompt.ts` | Vantly call cites Certly's extracted quote; Cindy answers. **Cut first if late.** |
 | F | L+T | — | 3:45 | todo | V2/V1, T5 | — | Acceptance tests (SPEC §9) pass; recording starts 4:00. |

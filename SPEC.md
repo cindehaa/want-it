@@ -16,7 +16,8 @@ Pitch line: *a limit order with bargaining power.* A price-watch agent waits for
 | Topic | Decision |
 |---|---|
 | Mechanism | **Pooled purchasing power.** Vendors quote tiered group prices. |
-| Demo category | **SOC 2 compliance software seats.** No shipping. Vendors are **fictional test vendors**: "Certly" (answered by teammate) and "Vantly" (vendor B, answered by Cindy). Always labeled "test vendor". |
+| Demo category | **SOC 2 compliance software seats.** No shipping. Vendors are **fictional test vendors** "Certly" and "Vantly", always labeled "test vendor". |
+| Vendor side of the call | **A Dial AI agent answers as the vendor** (Dial number B with `inboundInstruction` = vendor persona + private pricing policy; PATCHed per vendor before each call). Our buyer agent (number A) does not know the floors, so the haggling is real. UI shows the vendor's private policy, labeled "simulated vendor (AI agent)". Fallback `VENDOR_MODE=human`: teammate answers as Certly, Cindy as Vantly. |
 | Software delivery | Group the **deal**, not the account. Each buyer gets their own account via a per-buyer redemption link at the group price. We never hold or share credentials. |
 | Buyer UX | Normal checkout → "Order confirmed" instantly. Card **hold** (simulated, labeled), not a charge. Captured at final price when the deal lands or the window closes. |
 | Max price | Optional "only buy if ≤ $X/seat". Hold = min(list, max). If final price > max → order auto-canceled, hold released. These buyers are the vendor's *incremental* demand. |

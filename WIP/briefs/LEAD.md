@@ -10,7 +10,7 @@ Owner: Cindy's Claude Code session. Read `SPEC.md`. Own everything except the te
 - **L4 (2:55)** `lib/dial/`: create call (REST, Bearer), poll call until `transcriptTurns`; `lib/dial/prompt.ts` builds instruction from pool facts (+ evidence, + prior quotes). Max 180s calls. Store call; failures → `failed`.
 - **L5 (3:05)** `lib/quote/extract.ts` (Claude `claude-sonnet-5-5`, structured JSON → `Quote`, keep evidence snippet; null for anything not stated). `lib/settle/` SPEC §4 single pass. Simulated capture.
 - **L6 (3:10)** Call panel with transcript, quote cards, time-saved counter from `data/benchmark.json`, demo clock controls.
-- **X1 (3:15)** Real call with T as Certly. Save for `recorded_replay`. Merge `teammate` branch. **→ V1: tag `v1`.**
+- **X1 (3:15)** Real Dial call A→B with the AI Certly persona (`lib/dial/vendorPersonas.ts`). Save for `recorded_replay`. Merge `teammate` branch. **→ V1: tag `v1`.**
 - **L7 (3:30)** Evidence card + evidence numbers in call instruction; call `recordEvent` from order/cancel routes.
 - **L8 (3:40)** Vantly call citing Certly's quote. Cut if late. **→ V2: tag `v2`.**
 

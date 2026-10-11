@@ -47,7 +47,7 @@ Our product negotiates group prices for startups. The vendor only agrees if the 
 
 **T1 — accounts (start NOW, by 2:15)**
 1. Keewano: sign up at keewano.com, create project, in the in-app chat (bottom-left) send `#SpeedHacks` (unlocks MCP + unlimited events). Settings → Project → API Keys → event key. Settings → Personal → Security → PAT (`kwpat-…`).
-2. Dial: `npm i -g @getdial/cli` (Node 22+), `dial auth login <email>` → `verify-otp`; verify your phone number; get API key (`sk_live_…`). Ask Dial staff for a SpeedHacks coupon/credits.
+2. Dial (ONE account for the team): `npm i -g @getdial/cli` (Node 22+) → `dial auth login <email>` → `dial auth verify-otp` → `dial auth register-number <your cell>` → `dial auth verify-otp --number`. This gives number A (our buyer agent). Then buy number B for the AI vendor: `dial number purchase --area-code 415 --inbound-instruction "Placeholder vendor agent" --explicit-programmatic-consent "Account holder approved" --json` (costs $3 of the $5 starter credit — **ask Dial staff for a SpeedHacks coupon/credits first**). Send Cindy: API key (`sk_live_…`), number A id, number B id + E.164.
 3. Anthropic API key (for quote extraction).
 4. Send keys to Cindy out-of-band (DM). Never commit keys. Post `keys ready` in `WIP/LOG.md`.
 
@@ -68,7 +68,7 @@ Our product negotiates group prices for startups. The vendor only agrees if the 
 - **Observed:** time yourself filling one real SOC 2 vendor's "contact sales"/demo form (do NOT submit) + note their stated response time. Tag `observed`.
 - Others: honest estimates, tag `estimate`, one-line `note` each with the assumption. No invented statistics or citations.
 
-**T5 — demo (by 3:40)** — `demo/SCRIPT.md` from SPEC §11, timed ≤ 4:45. You answer the phone as **"Certly" sales rep** (test vendor, $30/seat list; willing: $24 at 10+ seats, $20 at 25+, separate accounts OK, offer expires in 7 days). Cindy answers as **"Vantly"**. Rehearse once.
+**T5 — demo (by 3:40)** — `demo/SCRIPT.md` from SPEC §11, timed ≤ 4:45. Vendors are now **AI agents on Dial** (no human on the phone). Fallback only if AI vendor fails: you answer as Certly (list $30; $24 at 10+, $20 at 25+, separate accounts OK, 7-day expiry), Cindy as Vantly. Rehearse once.
 
 ## Handoff (post in WIP/LOG.md when you push)
 Files changed · how Keewano is queried (exact method) · `pnpm tsx scripts/keewano/check.ts` output · what is live vs cached vs synthetic · unresolved failures.
