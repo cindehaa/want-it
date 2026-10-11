@@ -1,7 +1,7 @@
 // Builds the outbound phone-agent system prompt from REAL pool state. Every number in here comes from
 // our DB / Keewano / extracted supplier quotes. The agent is told never to state anything else.
 import type { DemandEvidence, Order, Pool, Quote, Vendor } from "@/lib/contracts";
-import { tierPrice } from "@/lib/settle";
+import { effectivePrice, tierPrice } from "@/lib/settle";
 
 export type BuildInstructionInput = {
   vendor: Vendor;
@@ -44,11 +44,44 @@ function describeQuote(q: Quote): string {
   return `${t}${fee}`;
 }
 
-export function bestCompetitorQuote(vendorId: string, quotes: Quote[], seats: number): Quote | null {
-  const others = quotes.filter((q) => q.vendorId !== vendorId && q.tiers.length > 0);
-  if (others.length === 0) return null;
-  const score = (q: Quote) => tierPrice(q, seats) ?? Math.min(...q.tiers.map((t) => t.pricePerSeatCents)) + 1_000_000; // unreachable tiers rank last
-  return others.slice().sort((a, b) => score(a) - score(b))[0];
+/** Pool orders a vendor's quote would cover (SPEC §4: preferred-vendor orders count only toward that vendor). */
+const eligibleFor = (vendorId: string, members: Order[]) => members.filter((o) => !o.preferredVendorId || o.preferredVendorId === vendorId);
+
+export type BestEffectiveQuote = {
+  quote: Quote;
+  vendorId: string;
+  /** Seat-weighted all-in price per seat: lib/settle effectivePrice (tier price + perAccountFee / order seats) over the orders the quote covers. */
+  allInPerSeatCents: number;
+  tierPricePerSeatCents: number;
+  accounts: number;
+  seats: number;
+};
+
+/** All-in (effective) price of one quote over the pool orders it would cover; null if it cannot apply (no tier at pool size, no separate accounts, expired). */
+export function effectiveAllIn(q: Quote, members: Order[], now: Date = new Date()): BestEffectiveQuote | null {
+  if (q.tiers.length === 0 || q.separateAccountsConfirmed !== true) return null;
+  if (q.expiresAt && new Date(q.expiresAt).getTime() < now.getTime()) return null;
+  const covered = eligibleFor(q.vendorId, members);
+  const seats = covered.reduce((s, o) => s + o.seats, 0);
+  const tier = tierPrice(q, seats);
+  if (seats === 0 || tier == null) return null;
+  const total = covered.reduce((s, o) => s + (effectivePrice(q, seats, o) ?? tier) * o.seats, 0);
+  return { quote: q, vendorId: q.vendorId, allInPerSeatCents: Math.round(total / seats), tierPricePerSeatCents: tier, accounts: covered.length, seats };
+}
+
+/**
+ * The best EFFECTIVE (all-in) supplier-stated quote so far, optionally excluding one vendor (the one we are about to call).
+ * Only quotes that settlement would consider count (separate accounts confirmed, a tier that applies at the pool size,
+ * not expired), so the figure we cite to the next vendor is one a real buyer could actually get.
+ */
+export function bestEffectiveQuote(quotes: Quote[], members: Order[], opts: { excludeVendorId?: string; now?: Date } = {}): BestEffectiveQuote | null {
+  let best: BestEffectiveQuote | null = null;
+  for (const q of quotes) {
+    if (q.vendorId === opts.excludeVendorId) continue;
+    const e = effectiveAllIn(q, members, opts.now);
+    if (e && (!best || e.allInPerSeatCents < best.allInPerSeatCents)) best = e;
+  }
+  return best;
 }
 
 export function buildInstruction({ vendor, pool, members, evidence, priorQuotes, now = new Date() }: BuildInstructionInput): string {
@@ -66,7 +99,7 @@ export function buildInstruction({ vendor, pool, members, evidence, priorQuotes,
   facts.push(
     `${holdCount === n ? `All ${plural(n, "startup")} ${n === 1 ? "has" : "have"}` : `${holdCount} of those ${plural(n, "startup")} already ${holdCount === 1 ? "has" : "have"}`} a payment-card authorization hold in place (holds totaling about ${usd(holdTotal)}). They are committed to buy if the price lands at or below their own maximum. If asked: these are authorization holds, not charges, and in this pilot the holds are simulated.`,
   );
-  facts.push(`Each startup needs its OWN separate account with ${vendor.name}. want-it never holds or shares credentials; it only brokers the group price.`);
+  facts.push(`Each startup needs its OWN separate account with ${vendor.name}, and each company gets and pays for its own account. want-it does not resell the software and never holds or shares credentials; it only brokers the group price.`);
   facts.push(`${vendor.name}'s list price is ${usd(vendor.listPricePerSeatCents)} per seat.`);
   if (dist.lines.length > 0) {
     facts.push(`Price sensitivity of the pooled buyers: ${dist.lines.join("; ")}.${dist.uncapped > 0 ? ` Separately, ${plural(dist.uncapped, "startup")} (${plural(dist.uncappedSeats, "seat")}) stated no cap beyond list price.` : ""}`);
@@ -87,10 +120,14 @@ export function buildInstruction({ vendor, pool, members, evidence, priorQuotes,
   }
 
   // Prior quotes (truthfully cited, supplier-stated only).
-  const competitor = bestCompetitorQuote(vendor.id, priorQuotes, seats);
-  if (competitor) {
-    const cname = competitor.vendorId.charAt(0).toUpperCase() + competitor.vendorId.slice(1);
-    facts.push(`On an earlier call, ${cname} told us: ${describeQuote(competitor)}${competitor.expiresAt ? ` (valid until ${new Date(competitor.expiresAt).toUTCString()})` : ""}. You may cite this and ask whether ${vendor.name} can beat it.`);
+  const best = bestEffectiveQuote(priorQuotes, members, { excludeVendorId: vendor.id, now });
+  if (best) {
+    const cname = best.vendorId.charAt(0).toUpperCase() + best.vendorId.slice(1);
+    const feeBit = best.quote.perAccountFeeCents > 0 ? `, plus a ${usd(best.quote.perAccountFeeCents)} per-account fee across ${plural(best.accounts, "account")}` : ", with no per-account fee";
+    const condBit = best.quote.conditions.length > 0 ? ` Its stated conditions: ${best.quote.conditions.join("; ")}.` : "";
+    facts.push(
+      `Our best offer so far is ${usd(best.allInPerSeatCents)}/seat all-in from ${cname}. (Detail, only if asked: on an earlier call ${cname} told us ${describeQuote(best.quote)}; at our pool size that is ${usd(best.tierPricePerSeatCents)}/seat${feeBit}, which averages ${usd(best.allInPerSeatCents)}/seat all-in.${condBit}${best.quote.expiresAt ? ` Valid until ${new Date(best.quote.expiresAt).toUTCString()}.` : ""}) After ${vendor.name} states its own first price, say exactly: "Our best offer so far is ${usd(best.allInPerSeatCents)}/seat all-in from ${cname}. Can you beat it?" Do not claim any other competing offer.`,
+    );
   }
   const own = priorQuotes.filter((q) => q.vendorId === vendor.id && q.tiers.length > 0);
   if (own.length > 0) {
@@ -101,13 +138,13 @@ export function buildInstruction({ vendor, pool, members, evidence, priorQuotes,
     `1. The per-seat price by seat-count tier. Ask what the best per-seat price is at our total of ${plural(seats, "seat")}, and whether better pricing exists at higher volumes.`,
     "2. Whether there is any per-account fee (setup, admin, or onboarding) per buyer.",
     "3. Confirmation that each startup gets its own separate account at the group price.",
-    "4. How long the offer is valid (expiry date) and any conditions (first-year-only discount, annual prepay, minimums).",
+    "4. How long the offer is valid (expiry date) and any conditions (first-year-only discount, annual prepay, minimum commitment term, minimums).",
   ];
 
   return [
     `You are the procurement agent for want-it, a marketplace that pools startup demand to negotiate group prices on software. You are making an outbound phone call to ${vendor.name} sales about SOC 2 compliance software seats. You are an AI agent and you must say so.`,
     "",
-    "OPENING (first sentence of the call): say you are an AI procurement agent calling on behalf of want-it, a marketplace that pools startup demand, and ask if they have two minutes to discuss group pricing for SOC 2 compliance software. The sales contact may be a human or an AI sales agent; run the same call either way. If the person cannot discuss pricing, ask politely for the right person. If you reach voicemail or an automated phone menu (not a conversational sales contact), end the call without leaving any figures.",
+    `OPENING: The sales contact is a stranger who knows nothing about want-it, so give the context they need, briefly and naturally, in your first turn or two. Say who you are (an AI agent calling on behalf of want-it), what want-it is in one sentence (a buying group that pools startups who each want the same software), and the concrete ask: group pricing on SOC 2 compliance software seats for ${plural(n, "startup")}, ${plural(seats, "seat")} in total, where each company gets and pays for its own account. Then STOP and let the contact respond and ask their questions. The contact may be a human or an AI sales agent; run the same call either way. If the person cannot discuss pricing, ask politely for the right person. If you reach voicemail or an automated phone menu (not a conversational sales contact), end the call without leaving any figures.`,
     "",
     "FACTS you may state (these are the ONLY facts you may state):",
     ...facts.map((f) => `- ${f}`),
@@ -115,12 +152,12 @@ export function buildInstruction({ vendor, pool, members, evidence, priorQuotes,
     "YOUR GOAL: get the vendor to state, clearly and out loud:",
     ...ask,
     "",
-    "HOW TO NEGOTIATE: Be friendly, direct, and brief. Lead with the pooled demand and the committed buyers, then ask for tiered pricing. If the price is above what the buyers will accept, say so using the price-sensitivity facts above and ask what would close the gap (for example a first-year discount). Push back once or twice at most. You cannot sign or commit anyone: the buyers decide, and each buys only if the final price is at or below their own maximum.",
+    "HOW TO NEGOTIATE: Be friendly, direct, and brief. After your opening, wait for the contact to respond before giving any numbers, and answer their questions honestly using only the FACTS above (for example how many seats, how billing and accounts work, the timeline). Then ask for tiered pricing. Do not dump the price-sensitivity or demand data up front: share the buyers' price sensitivity and the demand evidence only when the contact pushes back on price, then ask what would close the gap (for example a first-year discount). Push back once or twice at most. You cannot sign or commit anyone: the buyers decide, and each buys only if the final price is at or below their own maximum.",
     "",
     "HARD RULES:",
     "- Never invent numbers, statistics, buyer names, competitor offers, or deadlines. State only the FACTS above. If you do not know something, say you do not have that figure.",
     "- Never claim an offer or quote that the vendor did not state on this call, other than the earlier-call quotes listed in the FACTS.",
-    "- Keep every turn short and conversational; ask one question at a time. Finish within 2.5 minutes (the call is hard-capped at 3 minutes).",
+    "- Keep every turn short and conversational; ask one question at a time. Keep the whole call under about 3 minutes (it is hard-capped at 3 minutes) and aim to finish within 2.5.",
     "- Before you finish, repeat the final terms back and ask the vendor to confirm: each tier price, any per-account fee (or none), separate accounts, expiry, and conditions. If the vendor gave no discount, say so back too.",
     "- Then thank them and end the call.",
   ].join("\n");
