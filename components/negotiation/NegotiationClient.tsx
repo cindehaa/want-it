@@ -5,6 +5,7 @@ import type { DemandEvidence, PoolView } from "@/lib/contracts";
 import { deleteJson, getJson, postJson } from "@/components/pool/api";
 import Link from "next/link";
 import { fmtAgo, fmtRemaining, usdSeat } from "@/components/pool/format";
+import { withSavedRecordings } from "./recordings";
 import CallWall, { isLive } from "./CallWall";
 import { buildLanes, parseRun, poolFacts, rankLanes, type RunState } from "./derive";
 import { buildNegotiationFixture, type NegotiationFixtureStage } from "./fixture";
@@ -81,6 +82,7 @@ export default function NegotiationClient() {
   const everLive = useRef(false);
   const forced = useRef(false);
   const autoplayHandled = useRef(false);
+  const savedRecordings = useRef<unknown>(null);
 
   const refreshPool = useCallback(async () => {
     if (forced.current) return;
@@ -89,8 +91,16 @@ export default function NegotiationClient() {
       if (!res.ok) throw new Error(`pool ${res.status}`);
       const json: unknown = await res.json();
       if (!looksLikePoolView(json)) throw new Error("unexpected pool shape");
+      if (!savedRecordings.current && json.vendors.some((vendor) => !json.calls.some((call) => call.vendorId === vendor.id))) {
+        try {
+          const recordings = await fetch("/api/recordings", { cache: "force-cache" });
+          if (recordings.ok) savedRecordings.current = await recordings.json();
+        } catch {
+          // A library outage must not hide the current pool or an active call.
+        }
+      }
       everLive.current = true;
-      setView(json);
+      setView(withSavedRecordings(json, savedRecordings.current));
       setSource("live");
       setStale(false);
     } catch {
