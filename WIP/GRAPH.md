@@ -37,10 +37,10 @@ graph TD
 |---|---|---|---|---|---|---|---|
 | T1 | T | — | 2:15 | todo | — | none (keys → `.env.local`, shared out-of-band) | Keewano project with `#SpeedHacks` unlocked, event API key + `kwpat-` PAT; Dial account + verified number + API key; Anthropic API key. Posted "keys ready" in LOG. |
 | L0 | L | V0 | 2:10 | done | — | repo scaffold, `lib/contracts.ts`, `lib/keewano/index.ts` stub, `data/benchmark.json` stub, `.env.example` | `pnpm dev` runs; contracts committed; T can branch. |
-| T2 | T | V2 | 2:45 | todo | T1, L0 | `lib/keewano/**`, `scripts/keewano/**` | Custom event types registered; synthetic 90-day history ingested (labeled synthetic). **Must land by 2:45** (≈5 min query latency). |
-| T3 | T | V2 | 3:10 | todo | T2 | `lib/keewano/**` | `getDemandEvidence('soc2_compliance')` returns live Keewano numbers + query text; falls back to `keewano_cached` (with age) / `unavailable`. |
-| T4 | T | V1 | 2:40 | todo | L0 | `data/benchmark.json` | Steps filled; ≥1 `observed` baseline (timed real "contact sales" form, not submitted); rest tagged `estimate` with note. |
-| T5 | T | — | 3:40 | todo | — | `demo/**` | `demo/SCRIPT.md` timed to ≤4:45; rehearsal done once. |
+| T2 | T | V2 | 2:45 | doing | T1, L0 | `lib/keewano/**`, `scripts/keewano/**` | Custom event types registered; synthetic 90-day history ingested (labeled synthetic). **Must land by 2:45** (≈5 min query latency). |
+| T3 | T | V2 | 3:10 | doing | T2 | `lib/keewano/**` | `getDemandEvidence('soc2_compliance')` returns live Keewano numbers + query text; falls back to `keewano_cached` (with age) / `unavailable`. |
+| T4 | T | V1 | 2:40 | doing | L0 | `data/benchmark.json` | Steps filled; ≥1 `observed` baseline (timed real "contact sales" form, not submitted); rest tagged `estimate` with note. |
+| T5 | T | — | 3:40 | doing | — | `demo/**` | `demo/SCRIPT.md` timed to ≤4:45; rehearsal done once. |
 | L1 | L | V0 | 2:30 | done | L0 | `lib/db.ts`, `lib/clock.ts`, `lib/pool/**`, `lib/seed.ts` | 14 simulated buyers seeded; pool + exclusions computed; clock offset works. |
 | L2 | L | V0 | 2:40 | done | L1 | `app/page.tsx`, `app/orders/**`, `app/api/orders/**` | Order → "confirmed" with hold; cancel works; idempotent. |
 | L3 | L | V0 | 2:45 | done | L1 | `app/pool/**`, `app/api/pool/route.ts`, `components/**` | Map + curve + exclusions render from real DB state. |

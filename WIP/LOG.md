@@ -10,3 +10,5 @@ Format: `HH:MM [L|T] message`
 - 14:10 [L] Merged L1/L2: storefront, order page, order/pool/settle/demo APIs, 14-buyer seed. Waiting on dashboard (L3/L6) + Dial (L4/L5).
 - 14:15 [L] V0 DONE (tag v0): storefront + order page + /pool dashboard (map, curve, time-saved, evidence card, negotiation panel) on real API. L6 UI built; waiting on Dial engine (L4/L5) + keys.
 - 14:16 [L] Merged L4/L5: Dial engine (persona PATCH on number B, call A→B, poll, Claude quote extraction, replay/record). GET /api/pool now advances active calls. BLOCKED on .env.local Dial keys for X1 (first real call).
+
+- 14:23 [T] Teammate started T2-T5 on branch teammate. Friend handles T1/accounts and keys. Keewano keys are currently missing locally; building documented ingestion and MCP query with truthful fallbacks. Only teammate-owned code paths will change.
