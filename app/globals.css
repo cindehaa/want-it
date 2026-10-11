@@ -1,26 +1,163 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* want-it: light, neutral, one accent (emerald). Tokens double as CSS variables. */
+@theme {
+  --color-canvas: #f4f5f6;
+  --color-surface: #ffffff;
+  --color-ink: #12171c;
+  --color-muted: #5f6a75;
+  --color-faint: #8f98a2;
+  --color-line: #e1e4e8;
+  --color-accent: #059669;
+  --color-accent-strong: #047857;
+  --color-accent-soft: #e7f6ef;
+  --color-danger: #dc2626;
+  --color-danger-soft: #fdecec;
+  --color-warn: #a16207;
+  --color-warn-soft: #fbf1d9;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+:root {
+  color-scheme: light;
+}
+
+html,
+body {
+  background: var(--color-canvas);
+  color: var(--color-ink);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  min-width: 0;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* ---- Leaflet demand map ---- */
+.leaflet-container {
+  font-family: inherit;
+  background: #e9edf0;
+}
+.leaflet-tile-pane {
+  filter: saturate(0.45) brightness(1.04) contrast(0.96);
+}
+.wi-icon {
+  background: none;
+  border: none;
+  overflow: visible;
+}
+.wi-marker {
+  position: relative;
+  box-sizing: border-box;
+  border-radius: 9999px;
+  transition:
+    background-color 0.5s ease,
+    border-color 0.5s ease,
+    box-shadow 0.5s ease;
+}
+.wi-marker--pooled {
+  background: rgba(16, 185, 129, 0.55);
+  border: 2px solid #059669;
+  box-shadow:
+    0 0 0 5px rgba(16, 185, 129, 0.18),
+    0 0 18px 5px rgba(16, 185, 129, 0.6);
+}
+.wi-marker--deal {
+  background: #15803d;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 0 1.5px #15803d;
+}
+.wi-marker--over {
+  background: rgba(220, 38, 38, 0.08);
+  border: 2.5px solid #dc2626;
+}
+.wi-marker--list {
+  background: #94a3b8;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 0 1.5px #64748b;
+}
+.wi-marker--excluded {
+  background: rgba(148, 163, 184, 0.55);
+  border: 2px dashed #64748b;
+}
+.wi-marker--you::after {
+  content: "";
+  position: absolute;
+  inset: -7px;
+  border: 2px solid #12171c;
+  border-radius: 9999px;
+}
+.wi-you-label {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 10px);
+  transform: translateX(-50%);
+  background: #12171c;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 3px 7px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.wi-marker--join {
+  animation: wi-join 1.6s ease-out 1;
+}
+@keyframes wi-join {
+  0% {
+    box-shadow:
+      0 0 0 0 rgba(16, 185, 129, 0.75),
+      0 0 14px 3px rgba(16, 185, 129, 0.5);
+  }
+  100% {
+    box-shadow:
+      0 0 0 26px rgba(16, 185, 129, 0),
+      0 0 14px 3px rgba(16, 185, 129, 0.5);
+  }
+}
+.wi-tooltip.leaflet-tooltip {
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(18, 23, 28, 0.12);
+  padding: 8px 10px;
+  color: var(--color-ink);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+/* counter flash on real change */
+@keyframes wi-flash {
+  0% {
+    color: var(--color-accent);
+  }
+  100% {
+    color: var(--color-ink);
+  }
+}
+.wi-flash {
+  animation: wi-flash 1.4s ease-out 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wi-marker--join,
+  .wi-flash {
+    animation: none;
+  }
+  .wi-marker {
+    transition: none;
+  }
 }
