@@ -14,7 +14,7 @@ function captionFor(l: Lane): string {
   if (l.status === "no_recording") return "No recording to replay";
   if (l.status === "waiting") return "Not called yet";
   if (l.quote && l.quote.separateAccountsConfirmed !== true) return "Not ranked: no separate accounts";
-  if (l.quote && !l.eff) return "No tier at this pool size";
+  if (l.quote && !l.eff) return "No usable offer at current caps, volume, or expiry";
   return "No quote";
 }
 

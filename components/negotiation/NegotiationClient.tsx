@@ -226,7 +226,7 @@ export default function NegotiationClient() {
           </dl>
           <Leverage evidence={view.evidence} now={view.now} />
         </div>
-        {showControls && <RunControls running={running} pending={pending} error={runError ?? (run?.error === "Stopped by user" ? null : run?.error ?? null)} onRun={startRun} onStop={stopRun} stopping={stopping} />}
+        {showControls && <RunControls running={running} pending={pending} error={runError ?? (run?.error === "Stopped by user" ? null : run?.error ?? null)} onRun={startRun} onStop={stopRun} stopping={stopping} settled={view.pool.status === "settled"} />}
       </div>
 
       <section aria-label="Vendor calls" className="mt-6 grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3">

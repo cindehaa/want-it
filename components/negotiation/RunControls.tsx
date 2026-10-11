@@ -11,6 +11,7 @@ export default function RunControls({
   onRun,
   onStop,
   stopping,
+  settled,
 }: {
   running: boolean;
   pending: RunMode | null;
@@ -18,8 +19,9 @@ export default function RunControls({
   onRun: (mode: RunMode) => void;
   onStop: () => void;
   stopping: boolean;
+  settled: boolean;
 }) {
-  const busy = running || pending !== null;
+  const busy = running || pending !== null || settled;
   return (
     <div className="flex min-w-0 flex-col gap-2 lg:items-end">
       <div className="flex flex-wrap items-center gap-2">

@@ -124,8 +124,8 @@ export default function PoolClient() {
             <p className="text-[15px] leading-snug">
               <span className="tabular font-semibold">{view.pool.memberOrderIds.length}</span> startups
               {" · "}
-              <span className="tabular font-semibold">{view.pool.totalSeats}</span> seats waiting.{" "}
-              <span className="text-muted">Cards are held, not charged.</span>
+              <span className="tabular font-semibold">{view.pool.totalSeats}</span> seats in this buying window.{" "}
+              <span className="text-muted">Payment holds are simulated.</span>
             </p>
             <section
               aria-label="Demand map"
@@ -159,7 +159,7 @@ export default function PoolClient() {
             <NegotiationPanel view={view} phase={phase} onChanged={onChanged} />
           </Step>
 
-          <Step n={4} title="Everyone pays less" state={stepState(4, phase)} last>
+          <Step n={4} title="Settle each order" state={stepState(4, phase)} last>
             <PriceCurve view={view} />
             <SettlePanel view={view} phase={phase} onChanged={onChanged} />
           </Step>
