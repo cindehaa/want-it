@@ -10,6 +10,7 @@ test("live order context and typed payload share a stable buyer and idempotent b
   assert.deepEqual(first, demandBatch(input));
   assert.match(first.installId, /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/);
   assert.equal(first.events[0].data, "soc2_compliance");
+  assert.deepEqual(Object.keys(first.events[0]).sort(), ["data", "dataType", "eventTypeId", "timestamp"]);
   assert.equal(first.events[1].data, false);
   assert.equal(first.events.at(-1)?.data, 12);
   assert.equal(first.installId, demandBatch({ ...input, type: "order_canceled" }).installId);
@@ -35,6 +36,9 @@ test("synthetic history has 60 unique startups and exactly 35 percent price aban
 test("SQL results validate counts and preserve zero and nullable medians", () => {
   const evidence = evidenceFromRows({ rows: [{ interested_buyers: "60", abandoned_buyers: "21", synthetic_buyers: "60" }] }, { rows: [{ median_max_price: "2210.5" }] }, "actual SQL", "2026-10-11T20:00:00Z");
   assert.equal(evidence.source, "keewano_live");
+  const actualShape = evidenceFromRows({ columns: [{ name: "interested_buyers" }, { name: "abandoned_buyers" }, { name: "synthetic_buyers" }], rows: [[60, 21, 60]] }, { columns: [{ name: "median_max_price" }], rows: [[2200]] }, "SQL", "date");
+  assert.equal(actualShape.interestedBuyers90d, 60);
+  assert.equal(actualShape.medianMaxPricePerSeatCents, 2200);
   assert.equal(evidence.medianMaxPricePerSeatCents, 2211);
   assert.equal(evidence.isSyntheticHistory, true);
   assert.equal(evidence.queryText, "actual SQL");

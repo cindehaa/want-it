@@ -92,3 +92,18 @@ test("a hanging query stops at the eight-second deadline", async (t) => {
   assert.match(evidence.summary, /8-second/);
   assert.ok(Date.now() - start < 9000);
 });
+
+test("the ingest boundary strips extra local metadata from API events", async (t) => {
+  const { demandBatch } = await import("./events");
+  const { sendBatch } = await import("./ingest");
+  const original = demandBatch({ type: "order_placed", orderId: "metadata-order", category: "soc2_compliance", seats: 2, at: "2026-10-11T21:00:00Z" });
+  const withMetadata = { ...original, events: original.events.map((e) => ({ ...e, name: "local name", debugLabel: "local only" })) };
+  const bodies: { events?: Record<string, unknown>[] }[] = [];
+  t.mock.method(globalThis, "fetch", async (url: string, options: RequestInit) => {
+    const body = JSON.parse(options.body as string);
+    bodies.push(body);
+    return new Response(JSON.stringify(url.endsWith("/custom") ? { status: "registered" } : { received: body.events.length, accepted: body.events.length }), { headers: { "Content-Type": "application/json" } });
+  });
+  await sendBatch(withMetadata, "metadata-test-key", AbortSignal.timeout(8000));
+  assert.deepEqual(Object.keys(bodies[1].events![0]).sort(), ["data", "dataType", "eventTypeId", "timestamp"]);
+});

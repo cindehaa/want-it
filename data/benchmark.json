@@ -1,11 +1,46 @@
 {
   "steps": [
-    { "id": "compare", "label": "Find & compare vendors", "baselineMinutesPerBuyer": 60, "ourMinutesPerBuyer": 0, "kind": "estimate", "note": "STUB — teammate replaces (T4)" },
-    { "id": "contact_sales", "label": "Contact sales & book a call", "baselineMinutesPerBuyer": 15, "ourMinutesPerBuyer": 0, "kind": "estimate", "note": "STUB" },
-    { "id": "sales_call", "label": "Sales call & quote", "baselineMinutesPerBuyer": 45, "ourMinutesPerBuyer": 0, "kind": "estimate", "note": "STUB" },
-    { "id": "negotiate", "label": "Negotiate & follow up", "baselineMinutesPerBuyer": 60, "ourMinutesPerBuyer": 0, "kind": "estimate", "note": "STUB" },
-    { "id": "checkout", "label": "Checkout", "baselineMinutesPerBuyer": 3, "ourMinutesPerBuyer": 1, "kind": "estimate", "note": "STUB" }
+    {
+      "id": "compare",
+      "label": "Find and compare vendors",
+      "baselineMinutesPerBuyer": 45,
+      "ourMinutesPerBuyer": 0,
+      "kind": "estimate",
+      "note": "Assumes a founder reviews three SOC 2 vendors for 15 minutes each. No human timing collected."
+    },
+    {
+      "id": "contact_sales",
+      "label": "Contact sales and request a call",
+      "baselineMinutesPerBuyer": 3,
+      "ourMinutesPerBuyer": 0,
+      "kind": "estimate",
+      "note": "Assumes three minutes to fill one sales form with company details. Excludes waiting for a reply and scheduling delays. Vanta demo form inspected on 2026-10-11 at https://www.vanta.com/demo without submitting; inspection is not a measured human baseline."
+    },
+    {
+      "id": "sales_call",
+      "label": "Sales call and quote",
+      "baselineMinutesPerBuyer": 30,
+      "ourMinutesPerBuyer": 0,
+      "kind": "estimate",
+      "note": "Assumes one 30-minute sales call. This is a scenario assumption, not a vendor promise or observed duration."
+    },
+    {
+      "id": "negotiate",
+      "label": "Negotiate and follow up",
+      "baselineMinutesPerBuyer": 20,
+      "ourMinutesPerBuyer": 0,
+      "kind": "estimate",
+      "note": "Assumes 20 minutes of active work to review pricing and follow up once. Excludes time waiting for a response."
+    },
+    {
+      "id": "checkout",
+      "label": "Checkout",
+      "baselineMinutesPerBuyer": 3,
+      "ourMinutesPerBuyer": 1,
+      "kind": "estimate",
+      "note": "Assumes three minutes for direct checkout and one minute with want-it. Both are estimates until a person times the same task."
+    }
   ],
-  "vendorSalesMinutesPerCustomer": 90,
-  "kindNote": "STUB — teammate replaces with observed/estimate values."
+  "vendorSalesMinutesPerCustomer": 30,
+  "kindNote": "Illustrative estimate: 101 active human minutes per buyer directly versus one minute with want-it, or 100 estimated minutes saved. No observed human baseline has been collected. Waiting, agent call time and money are separate. This pilot uses fictional vendors and simulated payment holds. Vendor-side estimate assumes one 30-minute sales call per customer."
 }

@@ -12,7 +12,7 @@ const TIMEOUT_MS = 8000;
 function cacheFile(category: Category, token: string): string {
   // Cache identity follows the account token and explicit project, never another demo's evidence.
   const identity = createHash("sha256").update(`${token}:${process.env.KEEWANO_PROJECT_ID ?? ""}`).digest("hex").slice(0, 24);
-  return path.join(process.cwd(), "data", "keewano-cache", `${identity}-${category}.json`);
+  return path.join(process.cwd(), "lib", "keewano", ".runtime", "cache", `${identity}-${category}.json`);
 }
 
 function unavailable(reason: string): DemandEvidence {

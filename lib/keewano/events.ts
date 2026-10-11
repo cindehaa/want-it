@@ -33,7 +33,7 @@ export function event(name: EventName, data: IngestEvent["data"], timestamp: num
   if (definition.dataType === "string" && (typeof data !== "string" || data.length > 256)) throw new Error("Invalid string event");
   if (definition.dataType === "bool" && typeof data !== "boolean") throw new Error("Invalid boolean event");
   if (["uint", "price_usd_cent"].includes(definition.dataType) && (typeof data !== "number" || !Number.isSafeInteger(data) || data < 0)) throw new Error("Invalid numeric event");
-  return { ...definition, timestamp, data };
+  return { eventTypeId: definition.eventTypeId, dataType: definition.dataType, timestamp, data };
 }
 
 export function demandBatch(input: DemandEvent): Batch {
@@ -63,7 +63,8 @@ export function demandBatch(input: DemandEvent): Batch {
 
 export function syntheticBatches(anchorSeconds: number): Batch[] {
   return Array.from({ length: 60 }, (_, i) => {
-    const t = anchorSeconds - (1 + i * 89 / 60 | 0) * 86400;
+    const daysAgo = 1 + Math.floor(i * 89 / 60);
+    const t = anchorSeconds - daysAgo * 86400;
     const events = [
       event("wantit_category", "soc2_compliance", t), event("wantit_synthetic", true, t + 1),
       event("wantit_interest", true, t + 2), event("wantit_quote_requested", true, t + 3),
