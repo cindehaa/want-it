@@ -29,7 +29,9 @@ export async function registerEvents(key: string, signal: AbortSignal): Promise<
 
 export async function sendBatch(batch: Batch, key: string, signal: AbortSignal): Promise<{ received: number; accepted: number }> {
   await registerEvents(key, signal);
-  const ack = await post("in", batch, key, signal) as { received?: number; accepted?: number };
+  // Keewano rejects unknown properties; "name" is only for our own logs.
+  const wire = { ...batch, events: batch.events.map((e) => { const { name: _n, ...rest } = e as typeof e & { name?: string }; return rest; }) };
+  const ack = await post("in", wire, key, signal) as { received?: number; accepted?: number };
   if (ack.received !== batch.events.length || typeof ack.accepted !== "number" || ![0, batch.events.length].includes(ack.accepted)) {
     throw new Error("Keewano did not acknowledge the complete batch");
   }
