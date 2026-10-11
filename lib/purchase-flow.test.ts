@@ -78,6 +78,35 @@ test("stopping during an asynchronous runner tick prevents the next call", async
   assert.equal(runner.runView().running, false);
 });
 
+test("parallel calls are not dialed after stopping during persona setup", async (t) => {
+  const runner = await import("@/lib/dial/runner");
+  const key = process.env.DIAL_API_KEY;
+  const lanes = process.env.DIAL_PARALLEL_LANES;
+  process.env.DIAL_API_KEY = "test-key";
+  process.env.DIAL_PARALLEL_LANES = JSON.stringify(["certly", "vantly"].map((vendorId, i) => ({ vendorId, vendorNumberId: `vendor-${i}`, callerNumberId: `caller-${i}`, vendorPhone: `+1415555010${i}` })));
+  t.after(() => {
+    if (key === undefined) delete process.env.DIAL_API_KEY; else process.env.DIAL_API_KEY = key;
+    if (lanes === undefined) delete process.env.DIAL_PARALLEL_LANES; else process.env.DIAL_PARALLEL_LANES = lanes;
+  });
+  let announce!: () => void;
+  let release!: () => void;
+  const started = new Promise<void>((r) => { announce = r; });
+  const gate = new Promise<void>((r) => { release = r; });
+  let dialed = 0;
+  t.mock.method(globalThis, "fetch", async (_url: unknown, opts: RequestInit) => {
+    if (opts.method === "PATCH") { announce(); await gate; }
+    else dialed++;
+    return new Response(JSON.stringify({ id: "test-call", status: "Queued" }), { headers: { "content-type": "application/json" } });
+  });
+  const pending = runner.startRun("live", { parallel: true });
+  await started;
+  runner.stopRun();
+  release();
+  await pending;
+  assert.equal(dialed, 0);
+  assert.equal(runner.runView().running, false);
+});
+
 test("order preview ignores unconfirmed and expired quotes", async () => {
   const order: Order = await (await create()).json();
   const stamp = new Date().toISOString();
