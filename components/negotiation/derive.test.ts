@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { buildFixture } from "@/components/pool/fixture";
-import { buildLanes, ratchetSeries } from "./derive";
+import { buildLanes, parseRun, ratchetSeries } from "./derive";
 import { effectiveAllIn } from "@/lib/dial/prompt";
 import { VENDORS } from "@/lib/vendors";
 
@@ -26,4 +26,10 @@ test("the chart uses the same reference list price as checkout after adding vend
   const view = buildFixture("open");
   view.vendors = VENDORS;
   assert.equal(ratchetSeries(buildLanes(view, null)).lowestList, 3000);
+});
+
+test("stopping a replay run does not invent missing recordings for uncalled vendors", () => {
+  const view = buildFixture("open");
+  const run = parseRun({ run: { running: false, mode: "replay", order: ["certly"], finishedAt: view.now, error: "Stopped by user" }, progress: { vendors: [{ vendorId: "certly", state: "pending" }] } });
+  assert.equal(buildLanes(view, run)[0].status, "waiting");
 });
