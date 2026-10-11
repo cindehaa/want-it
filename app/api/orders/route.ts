@@ -3,6 +3,7 @@ import { CreateOrderInput, type Order } from "@/lib/contracts";
 import { findOrderByIdempotencyKey, get, newId, put } from "@/lib/db";
 import { now } from "@/lib/clock";
 import { getOrCreatePool, recomputePool } from "@/lib/pool";
+import { maybeAutoDispatch } from "@/lib/autoDispatch";
 import { VENDORS } from "@/lib/vendors";
 import { listPriceOrDefault } from "@/lib/seed";
 import { emitEvent, ensureSeeded } from "@/lib/poolView";
@@ -71,5 +72,6 @@ export async function POST(req: Request) {
   if (order.maxPricePerSeatCents != null) {
     emitEvent({ type: "max_price_stated", orderId: order.id, category: order.category, seats: order.seats, priceCents: order.maxPricePerSeatCents, at });
   }
+  void maybeAutoDispatch(); // marketplace starts vendor negotiation on its own once the pool is big enough
   return NextResponse.json(get("orders", order.id) ?? order, { status: 201 });
 }
