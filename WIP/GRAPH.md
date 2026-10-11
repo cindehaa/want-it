@@ -43,7 +43,7 @@ graph TD
 | T5 | T | — | 3:40 | todo | — | `demo/**` | `demo/SCRIPT.md` timed to ≤4:45; rehearsal done once. |
 | L1 | L | V0 | 2:30 | done | L0 | `lib/db.ts`, `lib/clock.ts`, `lib/pool/**`, `lib/seed.ts` | 14 simulated buyers seeded; pool + exclusions computed; clock offset works. |
 | L2 | L | V0 | 2:40 | done | L1 | `app/page.tsx`, `app/orders/**`, `app/api/orders/**` | Order → "confirmed" with hold; cancel works; idempotent. |
-| L3 | L | V0 | 2:45 | doing | L1 | `app/pool/**`, `app/api/pool/route.ts`, `components/**` | Map + curve + exclusions render from real DB state. |
+| L3 | L | V0 | 2:45 | done | L1 | `app/pool/**`, `app/api/pool/route.ts`, `components/**` | Map + curve + exclusions render from real DB state. |
 | L4 | L | V1 | 2:55 | doing | L0, T1 | `lib/dial/**`, `app/api/pool/negotiate/**`, `app/api/calls/**` | Real outbound call placed and transcript polled. |
 | L5 | L | V1 | 3:05 | doing | L4 | `lib/quote/**`, `lib/settle/**`, `app/api/pool/settle/**` | Transcript → Quote (Claude); settle applies SPEC §4 rules. |
 | L6 | L | V1 | 3:10 | doing | L5, T4 | `app/pool/**`, `components/**` | Call panel + transcript + quote cards + time-saved counter. |
