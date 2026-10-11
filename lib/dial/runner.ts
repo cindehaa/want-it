@@ -404,6 +404,7 @@ export async function startRun(mode: NegotiateMode, opts: { parallel?: boolean; 
     await tickRunner();
     return reply(200, { alreadyRunning: true, ...runView() });
   }
+  if (g.__negotiateLock) return reply(409, { error: "The previous negotiation action is still finishing. Try again when it completes." });
   if (mode === "live" && !parallel) {
     const cfg = liveConfigError(NEGOTIATION_ORDER);
     if (cfg) return reply(400, { error: cfg });
@@ -449,6 +450,7 @@ async function placeLaneCalls(lanes: LaneConfig[], round: 1 | 2): Promise<Negoti
   try { evidence = await getDemandEvidence(pool.category); } catch { evidence = null; }
   evidence ??= { source: "unavailable" as const, queryText: "", ranAt: null, interestedBuyers90d: null, abandonedOverPrice90d: null, medianMaxPricePerSeatCents: null, isSyntheticHistory: true, summary: "Keewano unavailable." };
 
+  if (!readRun()?.running) return lanes.map(() => reply(409, { error: "Stopped by user" }));
   const calls = all("calls");
   const poolCallIds = new Set(calls.filter((c) => c.poolId === pool.id).map((c) => c.id));
   const priorQuotes: Quote[] = round === 1 ? [] : all("quotes").filter((q) => poolCallIds.has(q.callId)); // round 1: nothing known yet, nothing cited
@@ -464,6 +466,7 @@ async function placeLaneCalls(lanes: LaneConfig[], round: 1 | 2): Promise<Negoti
 
   return Promise.all(
     tasks.map(async ({ lane, vendor, sequence }): Promise<NegotiateResult> => {
+      if (!readRun()?.running) return reply(409, { error: "Stopped by user" });
       if (!vendor) return reply(404, { error: `Unknown vendor "${lane.vendorId}".` });
       const callId = newId("call");
       const instruction = `${buildInstruction({ vendor, pool, members, evidence, priorQuotes, now: now() })}\n\n${round === 1 ? ROUND1_NOTE : ROUND2_NOTE}`;
@@ -474,6 +477,7 @@ async function placeLaneCalls(lanes: LaneConfig[], round: 1 | 2): Promise<Negoti
       const persona = personaFor(vendor.id);
       if (!persona) return reply(500, { call: failed(`No vendor persona defined for ${vendor.name}`), error: `No vendor persona defined for ${vendor.name}` });
       const patched = await updateNumber(lane.vendorNumberId, { inboundInstruction: persona.instruction() });
+      if (!readRun()?.running) return reply(409, { error: "Stopped by user" });
       if (!patched.ok) {
         const msg = `Could not set the ${vendor.name} persona on its vendor number: ${patched.error}. No call was placed.`;
         return reply(502, { error: msg, call: failed(msg) });
