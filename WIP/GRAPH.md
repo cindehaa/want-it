@@ -35,7 +35,7 @@ graph TD
 
 | ID | Owner | Ver | Target | Status | Depends on | Files | Done when |
 |---|---|---|---|---|---|---|---|
-| T1 | T | — | 2:15 | todo | — | none (keys → `.env.local`, shared out-of-band) | Keewano project with `#SpeedHacks` unlocked, event API key + `kwpat-` PAT; Dial account + verified number + API key; Anthropic API key. Posted "keys ready" in LOG. |
+| T1 | T | — | 2:15 | done | — | none (keys → `.env.local`, shared out-of-band) | Keewano project with `#SpeedHacks` unlocked, event API key + `kwpat-` PAT; Dial account + verified number + API key; Anthropic API key. Posted "keys ready" in LOG. |
 | L0 | L | V0 | 2:10 | done | — | repo scaffold, `lib/contracts.ts`, `lib/keewano/index.ts` stub, `data/benchmark.json` stub, `.env.example` | `pnpm dev` runs; contracts committed; T can branch. |
 | T2 | T | V2 | 2:45 | done | T1, L0 | `lib/keewano/**`, `scripts/keewano/**` | Custom event types registered; synthetic 90-day history ingested (labeled synthetic). **Must land by 2:45** (≈5 min query latency). |
 | T3 | T | V2 | 3:10 | done | T2 | `lib/keewano/**` | `getDemandEvidence('soc2_compliance')` returns live Keewano numbers + query text; falls back to `keewano_cached` (with age) / `unavailable`. |
@@ -47,7 +47,7 @@ graph TD
 | L4 | L | V1 | 2:55 | done | L0, T1 | `lib/dial/**`, `app/api/pool/negotiate/**`, `app/api/calls/**` | Real outbound call placed and transcript polled. |
 | L5 | L | V1 | 3:05 | done | L4 | `lib/quote/**`, `lib/settle/**`, `app/api/pool/settle/**` | Transcript → Quote (Claude); settle applies SPEC §4 rules. |
 | L6 | L | V1 | 3:10 | done | L5, T4 | `app/pool/**`, `components/**` | Call panel + transcript + quote cards + time-saved counter. |
-| X1 | L | V1 | 3:15 | todo | L6, T1 | — | One real Dial call A→B with AI Certly persona; stored for replay (`source: recorded_replay`). Human fallback if AI vendor fails. |
-| L7 | L | V2 | 3:30 | todo | T3, V1 | `lib/dial/prompt.ts`, `app/pool/**`, order routes | Evidence numbers appear in call instruction + evidence card; events recorded on order/cancel. |
-| L8 | L | V2 | 3:40 | todo | V1 | `lib/dial/prompt.ts` | Vantly call cites Certly's extracted quote; Cindy answers. **Cut first if late.** |
+| X1 | L | V1 | 3:15 | blocked(waiting for human to answer Certly phone) | L6, T1 | — | One real Dial call A→B with AI Certly persona; stored for replay (`source: recorded_replay`). Human fallback if AI vendor fails. |
+| L7 | L | V2 | 3:30 | done | T3, V1 | `lib/dial/prompt.ts`, `app/pool/**`, order routes | Evidence numbers appear in call instruction + evidence card; events recorded on order/cancel. |
+| L8 | L | V2 | 3:40 | doing(code done; needs real call) | V1 | `lib/dial/prompt.ts` | Vantly call cites Certly's extracted quote; Cindy answers. **Cut first if late.** |
 | F | L+T | — | 3:45 | todo | V2/V1, T5 | — | Acceptance tests (SPEC §9) pass; recording starts 4:00. |
