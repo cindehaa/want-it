@@ -164,6 +164,7 @@ async function startNextCall({ mode, vendorId, fromRunner = false }: StartOpts):
   const poolCallIds = new Set(calls.filter((c) => c.poolId === pool.id).map((c) => c.id));
   const priorQuotes: Quote[] = all("quotes").filter((q) => poolCallIds.has(q.callId));
   const instruction = buildInstruction({ vendor, pool, members: negotiating, evidence, priorQuotes, now: now() });
+  if (fromRunner && !readRun()?.running) return reply(409, { error: "The negotiation run was stopped before placing the next call." });
   const header =
     vmode === "ai"
       ? `[want-it note] vendor_mode=ai: a Dial AI agent answered as ${vendor.name} (test vendor persona applied to the vendor number). Round ${sequence}.`
@@ -311,10 +312,12 @@ export function runView(): RunView {
 }
 
 async function tick(): Promise<void> {
-  const run = readRun();
+  let run = readRun();
   if (!run || !run.running) return;
 
   await refreshActiveCalls({ waitMs: 1500 }); // poll Dial + extract quotes for in-flight calls
+  run = readRun();
+  if (!run?.running) return;
 
   // A call whose transcript exists but whose extraction failed gets ONE automatic retry, then counts as failed.
   for (const c of all("calls")) {
@@ -322,6 +325,8 @@ async function tick(): Promise<void> {
       run.extractionRetried.push(c.id);
       writeRun(run);
       await refreshCall(c.id, { retryExtraction: true });
+      run = readRun();
+      if (!run?.running) return;
     }
   }
 
