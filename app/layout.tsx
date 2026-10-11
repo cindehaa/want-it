@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "want-it — procurement for startups",
+  title: "want-it, procurement for startups",
   description:
     "Buy software like you have a procurement team. Startups pool demand, an AI agent negotiates a group price, and your price can only go down.",
 };
