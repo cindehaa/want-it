@@ -226,6 +226,51 @@ function LiveTile({ lane, state, offer, onJoin }: { lane: Lane; state: string; o
   );
 }
 
+/** Which audio the joined view can play, and why not when it cannot. */
+function audioFor(lane: Lane): { url: string | null; reason: string } {
+  const c = lane.call;
+  if (!c) return { url: null, reason: "No call to listen to yet" };
+  const a = c.audio;
+  if (isLive(lane)) {
+    if (a?.liveUrl && (a.liveKind === "mp3" || a.liveKind === "hls" || a.liveKind === null)) return { url: a.liveUrl, reason: "" };
+    if (a?.liveUrl) return { url: null, reason: `Live audio arrives as ${a.liveKind}, which this player cannot play yet` };
+    return { url: null, reason: "Dial has not given a listen-in stream for this call" };
+  }
+  if (a?.recordingUrl) return { url: a.recordingUrl, reason: "" };
+  if (c.source === "recorded_replay" || c.status === "extracted" || c.status === "transcribed" || c.status === "ended") {
+    return { url: `/recordings/${lane.vendor.id}.m4a`, reason: "" };
+  }
+  return { url: null, reason: "No recording for this call" };
+}
+
+function useJoinedAudio(url: string | null, on: boolean) {
+  const el = useRef<HTMLAudioElement | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    setFailed(false);
+    if (el.current) {
+      el.current.pause();
+      el.current = null;
+    }
+    if (!url) return;
+    const a = new Audio(url);
+    a.preload = "auto";
+    a.onerror = () => setFailed(true);
+    el.current = a;
+    return () => {
+      a.pause();
+      el.current = null;
+    };
+  }, [url]);
+  useEffect(() => {
+    const a = el.current;
+    if (!a) return;
+    if (on) void a.play().catch(() => setFailed(true));
+    else a.pause();
+  }, [on, url]);
+  return failed;
+}
+
 function JoinedView({
   lane,
   others,
@@ -244,6 +289,13 @@ function JoinedView({
   const live = isLive(lane);
   const turns = lane.call?.transcriptTurns ?? [];
   const firstNew = useNewTurns(lane.call?.id ?? null, turns.length);
+  const audio = audioFor(lane);
+  const [soundOn, setSoundOn] = useState(false);
+  const audioFailed = useJoinedAudio(audio.url, soundOn);
+  const canListen = !!audio.url && !audioFailed;
+  useEffect(() => {
+    if (!canListen) setSoundOn(false);
+  }, [canListen]);
   const state = live ? stateOf(lane) : lane.call ? `Ended, ${fmtMmSs(elapsedMs)}` : stateOf(lane);
   const emptyText =
     lane.status === "failed"
@@ -275,12 +327,19 @@ function JoinedView({
           </div>
           <div className="flex items-center gap-2">
             {live && <Meter className="mr-1.5" />}
-            <button type="button" className="cw-btn" disabled title="Audio is not available from Dial yet" aria-pressed={false}>
+            <button
+              type="button"
+              className={`cw-btn ${soundOn ? "cw-btn-on" : ""}`}
+              disabled={!canListen}
+              title={canListen ? (soundOn ? "Mute" : "Listen to this call") : audioFailed ? "The audio file could not be loaded" : audio.reason}
+              aria-pressed={soundOn}
+              onClick={() => setSoundOn((v) => !v)}
+            >
               <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round">
                 <path d="M2 6h3l4-3v10l-4-3H2z" />
                 <path d="M11.5 5.5a3.5 3.5 0 0 1 0 5" />
               </svg>
-              Sound off
+              {soundOn ? "Sound on" : "Sound off"}
             </button>
             <button type="button" className="cw-btn" onClick={() => onJoin(null)}>
               All calls
@@ -304,7 +363,17 @@ function JoinedView({
           )}
         </div>
         <p className="tabular m-0 mt-auto border-t border-canvas pt-3 text-[12px] text-muted">
-          {live ? "Sound is off. The transcript updates as the call goes on." : "Recorded call. The transcript is the full record."}
+          {soundOn
+            ? live
+              ? "Listening to the live call. You are muted; only the agents speak."
+              : "Playing the recording of this call."
+            : canListen
+              ? live
+                ? "Sound is off. The transcript updates as the call goes on."
+                : "Recorded call. Turn sound on to hear it."
+              : live
+                ? `Sound is off: ${audio.reason.toLowerCase()}. The transcript updates as the call goes on.`
+                : "Recorded call. The transcript is the full record."}
         </p>
       </div>
       <aside aria-label="Other calls" className="flex flex-col self-start rounded-[10px] border border-line bg-surface px-4 py-1.5">

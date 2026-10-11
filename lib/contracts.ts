@@ -92,6 +92,14 @@ export const Call = z.object({
   error: z.string().nullable(),
   startedAt: z.string(),
   endedAt: z.string().nullable(),
+  /** Audio from Dial, filled by the back end: a listen-in url while in progress, a recording once ended. */
+  audio: z
+    .object({
+      liveUrl: z.string().nullable(),
+      liveKind: z.enum(["websocket", "hls", "mp3", "webrtc"]).nullable(),
+      recordingUrl: z.string().nullable(),
+    })
+    .optional(),
 });
 export type Call = z.infer<typeof Call>;
 
