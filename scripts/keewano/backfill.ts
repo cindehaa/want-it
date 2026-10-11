@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile, rename } from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
@@ -7,7 +8,7 @@ import { loadEnv } from "./env";
 
 const Receipt = z.object({
   version: z.literal(1), anchorSeconds: z.number().int().positive(),
-  confirmed: z.array(z.string()), pending: z.string().nullable(),
+  confirmed: z.array(z.string()), pending: z.string().nullable(), accountFingerprint: z.string().nullable(),
 });
 
 async function main() {
@@ -18,7 +19,7 @@ async function main() {
   try { receipt = Receipt.parse(JSON.parse(await readFile(file, "utf8"))); }
   catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw new Error("Invalid backfill receipt; inspect it before sending anything");
-    receipt = { version: 1, anchorSeconds: Math.floor(Date.now() / 1000), confirmed: [], pending: null };
+    receipt = { version: 1, anchorSeconds: Math.floor(Date.now() / 1000), confirmed: [], pending: null, accountFingerprint: null };
   }
   const batches = syntheticBatches(receipt.anchorSeconds);
   console.log(JSON.stringify({ mode: dryRun ? "dry_run" : "send", synthetic: true, buyers: batches.length,
@@ -28,6 +29,11 @@ async function main() {
   if (dryRun) return;
   const key = process.env.KEEWANO_EVENT_KEY?.trim();
   if (!key) throw new Error("KEEWANO_EVENT_KEY is missing; no events sent");
+  const fingerprint = createHash("sha256").update(key).digest("hex");
+  if (receipt.accountFingerprint && receipt.accountFingerprint !== fingerprint) {
+    throw new Error("Backfill receipt belongs to a different event key; preserve it and use a separate checkout for another project");
+  }
+  receipt.accountFingerprint = fingerprint;
   if (receipt.pending && !process.argv.includes("--retry-pending")) {
     throw new Error("A previous batch has an uncertain outcome. Inspect the receipt, then use --send --retry-pending to retry the SAME idempotent batch");
   }
