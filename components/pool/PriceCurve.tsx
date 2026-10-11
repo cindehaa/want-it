@@ -96,18 +96,26 @@ export default function PriceCurve({ view }: { view: PoolView }) {
   const hasQuotes = vendorLines.length > 0;
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-4 pt-3.5 sm:px-5">
-        <h2 className="text-sm font-semibold">Price per seat by pool size</h2>
-        <p className="text-xs text-muted" aria-live="polite">
-          {hasQuotes
-            ? best
-              ? `At ${total} seats the best quote is ${usdSeat(best.atTotal as number)} a seat from ${best.vendorName}, down from ${usdSeat(listCents)} list.`
-              : "Pool is below the first tier of every quote."
-            : "Waiting for vendor quotes"}
-        </p>
-      </div>
-      <div className="h-[260px] w-full min-w-0 px-1 pb-1 pt-2 sm:px-2">
+    <div className="flex flex-col">
+      <p className="max-w-[62ch] text-[15px] leading-snug" aria-live="polite">
+        {hasQuotes ? (
+          best ? (
+            <>
+              <span className="font-semibold">
+                At {total} seats the best quote is {usdSeat(best.atTotal as number)} a seat
+              </span>{" "}
+              <span className="text-muted">
+                from {best.vendorName}, down from {usdSeat(listCents)} list.
+              </span>
+            </>
+          ) : (
+            <span className="text-muted">The pool is below the first tier of every quote.</span>
+          )
+        ) : (
+          <span className="text-muted">No quote yet, so every buyer would pay the {usdSeat(listCents)} list price. The curve fills in after the first call.</span>
+        )}
+      </p>
+      <div className="-ml-1 mt-3 h-[260px] w-full min-w-0 sm:h-[280px]">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={rows} margin={{ top: 22, right: 18, bottom: 22, left: 4 }}>
             <CartesianGrid stroke={GRID} vertical={false} />
@@ -195,9 +203,9 @@ export default function PriceCurve({ view }: { view: PoolView }) {
           </ComposedChart>
         </ResponsiveContainer>
       </div>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-line px-4 py-2 text-[11px] text-muted sm:px-5">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-line pt-2.5 text-[12px] text-muted">
         <Swatch color="#8f98a2" dashed label="List price" />
-        <Swatch color={SLATE} label="Buyers' max prices (seats willing to pay at least this)" />
+        <Swatch color={SLATE} label="Buyers' max (seats willing to pay at least this)" />
         {vendorLines.map((l) => (
           <Swatch key={l.key} color={l.color} label={l.name} />
         ))}
