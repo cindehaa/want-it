@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Negotiation room, call log variation</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#f4f5f6}
+a{color:#047857}a:hover{color:#059669}
+.tnum{font-variant-numeric:tabular-nums}
+.mono{font-family:"Geist Mono",ui-monospace,monospace}
+@keyframes wi-turn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.turn--new{animation:wi-turn .32s cubic-bezier(.2,.8,.2,1) 1}
+@keyframes wi-pulse{0%{box-shadow:0 0 0 0 rgba(5,150,105,.55)}100%{box-shadow:0 0 0 10px rgba(5,150,105,0)}}
+.live-dot{animation:wi-pulse 1.6s cubic-bezier(.2,.8,.2,1) infinite}
+@keyframes wi-flip{0%{transform:translateY(8px);opacity:0;color:#047857}60%{transform:translateY(0);opacity:1}100%{color:#12171c}}
+.price--new{animation:wi-flip .6s cubic-bezier(.2,.8,.2,1) 1}
+@keyframes wi-row{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.row--new{animation:wi-row .4s cubic-bezier(.2,.8,.2,1) 1}
+@media (prefers-reduced-motion:reduce){.turn--new,.live-dot,.price--new,.row--new{animation:none}}
+</style>
+</helmet>
+<div style="min-height: 860px; box-sizing: border-box; display: flex; flex-direction: column; font-family: Geist, system-ui, sans-serif; color: #12171c; background: #f4f5f6;">
+
+  <header style="height: 48px; box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; background: #ffffff; border-bottom: 1px solid #e1e4e8;">
+    <a href="Store-OneLine.dc.html" style="display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px; letter-spacing: -0.01em; color: #12171c; text-decoration: none;"><span aria-hidden="true" style="width: 10px; height: 10px; border-radius: 999px; background: #059669; display: inline-block;"></span>want-it</a>
+    <nav aria-label="Primary" style="display: flex; gap: 4px; font-size: 14px;">
+      <a href="Store-OneLine.dc.html" style="padding: 6px 12px; border-radius: 6px; color: #5f6a75; text-decoration: none;">Buy</a>
+      <a href="Market-MapFirst.dc.html" style="padding: 6px 12px; border-radius: 6px; color: #5f6a75; text-decoration: none;">Marketplace</a>
+      <a href="Neg-Timeline.dc.html" aria-current="page" style="padding: 6px 12px; border-radius: 6px; background: #12171c; color: #ffffff; text-decoration: none;">Negotiation</a>
+    </nav>
+  </header>
+
+  <div style="background: #ffffff; border-bottom: 1px solid #e1e4e8;">
+    <div style="max-width: 920px; margin: 0 auto; box-sizing: border-box; padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; gap: 24px;">
+      <p style="margin: 0; display: flex; align-items: baseline; gap: 10px; line-height: 1;">
+        <span class="tnum {{priceCls}}" style="font-size: 32px; font-weight: 600; letter-spacing: -0.03em;">{{price}}</span>
+        <span style="font-size: 14px; color: #5f6a75;">best so far, <span class="tnum" style="text-decoration: line-through;">$30.00</span> list</span>
+      </p>
+      <p style="margin: 0; display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500;">
+        <sc-if value="{{running}}" hint-placeholder-val="{{true}}"><span class="live-dot" aria-hidden="true" style="width: 8px; height: 8px; border-radius: 999px; background: #059669; display: inline-block;"></span></sc-if>
+        <span>{{statusLine}}</span>
+      </p>
+    </div>
+  </div>
+
+  <main style="flex: 1 1 auto; width: 100%; max-width: 920px; margin: 0 auto; box-sizing: border-box; padding: 24px 24px 32px; display: flex; flex-direction: column; gap: 20px;">
+    <p class="tnum" style="margin: 0; font-size: 13px; color: #5f6a75;">Pool of 249 seats from 12 startups. The agent calls vendors one at a time and cites the best offer so far. All five are test vendors.</p>
+
+    <ol aria-label="Calls" style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px;">
+      <sc-for list="{{rows}}" as="r" hint-placeholder-count="5">
+        <li class="{{r.rowCls}}" style="background: #ffffff; border: 1px solid {{r.border}}; border-radius: 10px; padding: 14px 18px; display: flex; flex-direction: column; gap: 12px;">
+          <div style="display: grid; grid-template-columns: 56px 28px minmax(0, 1fr) auto; align-items: center; gap: 12px;">
+            <span class="mono tnum" style="font-size: 12px; color: #5f6a75;">{{r.time}}</span>
+            <span aria-hidden="true" style="display: flex; align-items: center; justify-content: center;"><span class="{{r.dotCls}}" style="width: 10px; height: 10px; border-radius: 999px; box-sizing: border-box; background: {{r.dotBg}}; border: 2px solid {{r.dotBorder}}; display: inline-block;"></span></span>
+            <span style="font-size: 15px; min-width: 0;"><strong style="font-weight: 600; color: {{r.nameColor}};">{{r.name}}</strong> <span style="color: #5f6a75;">{{r.summary}}</span></span>
+            <span class="tnum" style="font-size: 15px; font-weight: 600; color: {{r.valueColor}}; text-align: right; white-space: nowrap;">{{r.value}}</span>
+          </div>
+          <sc-if value="{{r.open}}" hint-placeholder-val="{{false}}">
+            <div style="margin-left: 96px; display: flex; flex-direction: column; gap: 10px; border-top: 1px solid #f0f2f4; padding-top: 12px;">
+              <sc-if value="{{r.empty}}" hint-placeholder-val="{{false}}">
+                <p style="margin: 0; font-size: 14px; color: #5f6a75;">Dialing. Turns appear here as the call is transcribed.</p>
+              </sc-if>
+              <sc-for list="{{r.turns}}" as="t" hint-placeholder-count="3">
+                <p class="{{t.cls}}" style="margin: 0; display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 12px; font-size: 14px; line-height: 1.45;">
+                  <span style="font-weight: 500; color: {{t.whoColor}};">{{t.who}}</span>
+                  <span style="color: #12171c;">{{t.text}}</span>
+                </p>
+              </sc-for>
+            </div>
+          </sc-if>
+          <sc-if value="{{r.hasTranscript}}" hint-placeholder-val="{{false}}">
+            <div style="margin-left: 96px;"><a href="Main.dc.html" style="font-size: 13px; font-weight: 500; text-decoration: none;">{{r.linkText}}</a></div>
+          </sc-if>
+        </li>
+      </sc-for>
+    </ol>
+
+    <footer style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 4px;">
+      <p style="margin: 0; font-size: 13px; color: #5f6a75;">{{footNote}}</p>
+      <button type="button" disabled="{{settleDisabled}}" style="height: 44px; padding: 0 20px; border-radius: 8px; border: 0; background: {{settleBg}}; color: #ffffff; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;">{{settleLabel}}</button>
+    </footer>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":860}}'>
+const AUDITLY = [
+  ["agent", "We represent 12 startups, 249 SOC 2 seats. We have an offer in hand at $19 a seat. Can you beat it?"],
+  ["vendor", "Let me look at that volume. Are the accounts separate, and when do you need an answer?"],
+  ["agent", "Separate accounts per company, and the window closes in about 72 hours. What group tiers can you offer?"],
+  ["vendor", "For 200 seats and up I can do $18.50 a seat, first-year pricing, no per-account fee."],
+  ["agent", "Confirming: $18.50 per seat at 200 or more, separate accounts, no fee. Does that hold for seven days?"],
+  ["vendor", "Yes, seven days."]
+];
+const COMPLYKIT = [
+  ["agent", "Calling for 12 startups and 249 SOC 2 seats. Our best offer is $18.50 a seat. Can you beat it?"],
+  ["vendor", "At that volume our floor is $21. I can't beat $18.50 today."]
+];
+const STEPS = 13;
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { step: 0 }; }
+  componentDidMount() { this.timer = setInterval(() => this.setState((s) => ({ step: (s.step + 1) % STEPS })), 2100); }
+  componentWillUnmount() { clearInterval(this.timer); }
+  renderVals() {
+    const step = this.state.step;
+    const auditlyDone = step >= 7;
+    const complyActive = step >= 8 && step < 11;
+    const finished = step >= 11;
+    const best = auditlyDone ? 18.5 : 19;
+
+    const turnsFor = (script, count, who) => script.slice(0, count).slice(-4).map((t, i, arr) => ({
+      who: t[0] === "agent" ? "want-it agent" : who,
+      whoColor: t[0] === "agent" ? "#047857" : "#12171c",
+      text: t[1],
+      cls: i === arr.length - 1 && !finished && step !== 7 ? "turn--new" : ""
+    }));
+
+    const done = (time, name, summary, value, best) => ({
+      time, name, summary, value, open: false, empty: false, turns: [], hasTranscript: true, linkText: "Transcript and quote",
+      border: best ? "rgba(5,150,105,.35)" : "#e1e4e8", rowCls: "", dotCls: "",
+      dotBg: best ? "#059669" : "#ffffff", dotBorder: "#059669", nameColor: "#12171c", valueColor: best ? "#047857" : "#12171c"
+    });
+    const active = (time, name, summary, turns, empty) => ({
+      time, name, summary, value: "on the phone", open: true, empty, turns, hasTranscript: false, linkText: "",
+      border: "rgba(5,150,105,.35)", rowCls: "row--new", dotCls: "live-dot",
+      dotBg: "#059669", dotBorder: "#059669", nameColor: "#12171c", valueColor: "#047857"
+    });
+    const waiting = (name) => ({
+      time: "", name, summary: "next", value: "", open: false, empty: false, turns: [], hasTranscript: false, linkText: "",
+      border: "#e1e4e8", rowCls: "", dotCls: "", dotBg: "#f4f5f6", dotBorder: "#e1e4e8", nameColor: "#8f98a2", valueColor: "#5f6a75"
+    });
+
+    const rows = [
+      done("14:02", "Certly", "3:02 call, quote at 249 seats", "$22.93", false),
+      done("14:06", "Vantly", "2:48 call, quote at 249 seats", "$19.00", !auditlyDone),
+      done("14:10", "Trustwise", "2:31 call, quote at 249 seats", "$20.00", false)
+    ];
+    if (!auditlyDone) {
+      const count = step >= 1 && step <= 6 ? step : 0;
+      rows.push(active("14:14", "Auditly", "call 4 of 5, citing $19.00", turnsFor(AUDITLY, count, "Auditly"), count === 0));
+      rows.push(waiting("ComplyKit"));
+    } else {
+      rows.push(done("14:14", "Auditly", "1:12 call, quote at 249 seats", "$18.50", true));
+      if (finished) {
+        const r = done("14:17", "ComplyKit", "0:33 call, could not beat $18.50", "no better offer", false);
+        r.valueColor = "#5f6a75"; r.dotBg = "#ffffff"; r.dotBorder = "#b9c0c7";
+        rows.push(r);
+      } else if (complyActive) {
+        const count = Math.max(0, step - 8);
+        rows.push(active("14:17", "ComplyKit", "call 5 of 5, citing $18.50", turnsFor(COMPLYKIT, count, "ComplyKit"), count === 0));
+      } else {
+        rows.push(waiting("ComplyKit"));
+      }
+    }
+
+    return {
+      price: "$" + best.toFixed(2), priceCls: step === 7 ? "price--new" : "", running: !finished,
+      statusLine: finished ? "Run finished, 4 quotes from 5 vendors" : step === 7 ? "Quote extracted from Auditly" : complyActive ? "On the phone with ComplyKit, call 5 of 5" : "On the phone with Auditly, call 4 of 5",
+      rows,
+      footNote: finished ? "Settling applies $18.50 to every pooled startup whose price cap allows it." : "Settle is available when the last call ends.",
+      settleDisabled: !finished, settleBg: finished ? "#12171c" : "#b9c0c7",
+      settleLabel: finished ? "Settle pool at $18.50" : "Settle pool"
+    };
+  }
+}
+</script>
+</body>
+</html>

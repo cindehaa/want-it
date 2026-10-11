@@ -1,0 +1,52 @@
+{
+  "v": 3,
+  "createdOnFiles": { "v": 1, "at": "2026-10-11T22:20:00Z" },
+  "title": "want-it UI redesign",
+  "launch": { "view": "canvas" },
+  "pages": [],
+  "boards": {
+    "Store-Before.dc.html": { "x": 0, "y": 0, "w": 800, "h": 500, "title": "Before: storefront" },
+    "Store-OneLine.dc.html": { "x": 880, "y": 0, "w": 1280, "h": 820, "title": "A · One-sentence order", "expand": "fill", "is_interactive": true },
+    "Store-ProductPage.dc.html": { "x": 2240, "y": 0, "w": 1280, "h": 820, "title": "B · Product page with live group price", "expand": "fill", "is_interactive": true },
+
+    "Market-Before.dc.html": { "x": 0, "y": 1320, "w": 800, "h": 1010, "title": "Before: marketplace" },
+    "Market-MapFirst.dc.html": { "x": 880, "y": 1320, "w": 1280, "h": 860, "title": "A · Map is the stage, order dock floats", "expand": "fill", "is_interactive": true },
+    "Market-ShopGrid.dc.html": { "x": 2240, "y": 1320, "w": 1280, "h": 860, "title": "B · Search + product grid, pool meter on each card", "expand": "fill", "is_interactive": true },
+
+    "Neg-Before.dc.html": { "x": 0, "y": 2680, "w": 800, "h": 1010, "title": "Before: negotiation room" },
+    "Main.dc.html": { "x": 880, "y": 2680, "w": 1280, "h": 860, "title": "A · Stage: one live call, price ratchet, vendor rail", "expand": "fill", "is_interactive": true },
+    "Neg-Switchboard.dc.html": { "x": 2240, "y": 2680, "w": 1280, "h": 860, "title": "B · Switchboard: agent in the middle, beams to vendors", "expand": "fill", "is_interactive": true },
+    "Neg-Timeline.dc.html": { "x": 3600, "y": 2680, "w": 1280, "h": 860, "title": "C · Call log: activity-feed style", "expand": "fill", "is_interactive": true }
+  },
+  "order": [
+    "Main.dc.html",
+    "Store-Before.dc.html",
+    "Store-OneLine.dc.html",
+    "Store-ProductPage.dc.html",
+    "Market-Before.dc.html",
+    "Market-MapFirst.dc.html",
+    "Market-ShopGrid.dc.html",
+    "Neg-Before.dc.html",
+    "Neg-Switchboard.dc.html",
+    "Neg-Timeline.dc.html"
+  ],
+  "notes": {
+    "t1": { "x": 0, "y": -260, "text": "1 · Storefront (/)", "kind": "title1", "maxW": 3520 },
+    "t2": { "x": 0, "y": 1060, "text": "2 · Marketplace (/pool)", "kind": "title1", "maxW": 3520 },
+    "t3": { "x": 0, "y": 2420, "text": "3 · Negotiation room (/negotiation)", "kind": "title1", "maxW": 4880 },
+
+    "s1": { "x": 0, "y": 530, "w": 800, "maxH": 220, "fill": "red", "text": "Problems today: 136 words before the button. Four fields plus a checkbox for a one-product store. The list price, the 'at most' total, the hold disclaimer and the test-vendor disclaimer all compete with the single action. Nothing on the page shows that the price is already moving." },
+    "s1a": { "x": 880, "y": 850, "w": 1280, "maxH": 150, "fill": "green", "text": "A keeps: product, price, seats, optional cap, one button. Removes: company field (ask after confirm), vendor select (default 'compare'), both disclaimers (one footnote). Live: the group price ticks in the product card." },
+    "s1b": { "x": 2240, "y": 850, "w": 1280, "maxH": 150, "fill": "green", "text": "B keeps: product hero with list vs group price, pool meter to next tier, order box. Removes: hero headline paragraph, vendor select, inline explanations. Live: count-up when a startup joins, meter fills." },
+
+    "s2": { "x": 0, "y": 2360, "w": 800, "maxH": 260, "fill": "red", "text": "Problems today: 537 words, 19 badges, 41 bordered boxes, 11 font sizes, 2.6 screens tall. The 88px 'hours' number is the biggest thing on a page about buying software. Map, curve, evidence, transcripts, quotes and vendor policies are all expanded at once. There is no way to search or to place an order from here." },
+    "s2a": { "x": 880, "y": 2210, "w": 1280, "maxH": 140, "fill": "green", "text": "A keeps: map, one stat pill, order dock, search. Removes: time-saved hero, evidence card, call panel, policies, demo clock (moved to a drawer and a kebab). Live: dots join with a ripple, the pill counts up." },
+    "s2b": { "x": 2240, "y": 2210, "w": 1280, "maxH": 140, "fill": "green", "text": "B keeps: search, categories, product cards with list to group price and a tier meter, Join button. Removes: everything analytical from the first screen (lives in the card's 'See the pool' sheet). Live: meter fills, price ticks down." },
+
+    "s3": { "x": 0, "y": 3720, "w": 800, "maxH": 260, "fill": "red", "text": "Problems today: 1,149 words while running, 1,399 when done. 31 badges, 12 font sizes, 9 headings. Five equal columns, so the live call is 1/5 of the width and the eye has no place to land. Three competing summaries of the same price (leaderboard, chart, footer). Policies, estimates and disclaimers sit on the same level as the live transcript." },
+    "s3a": { "x": 880, "y": 3570, "w": 1280, "maxH": 150, "fill": "green", "text": "A keeps: best price, who the agent is talking to right now, last three turns, vendor rail, a sparkline, one Settle button. Removes: leaderboard, chart card, time panel, policies, all per-lane badges (into a Details drawer). Live: streaming turns, waveform, price flip, rail advances." },
+    "s3b": { "x": 2240, "y": 3570, "w": 1280, "maxH": 150, "fill": "green", "text": "B keeps: the shape of the mechanism (one agent, five vendors, one beam at a time), quotes on the nodes, a caption bar for the live line. Best for the demo video and for a wall display. Live: beam pulse travels agent to vendor; node fills when a quote lands." },
+    "s3c": { "x": 3600, "y": 3570, "w": 1280, "maxH": 150, "fill": "green", "text": "C keeps: a chronological log, one row per call, only the active row expanded; sticky price header. Closest to Vercel deploy logs and Linear activity. Live: rows append, active row streams turns, header number ratchets." }
+  },
+  "designSystems": []
+}

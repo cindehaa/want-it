@@ -30,13 +30,14 @@ export default function PoolHeader({
   const st = STATUS[view.pool.status];
   const closesInMs = new Date(view.pool.windowClosesAt).getTime() - new Date(view.now).getTime();
   const closed = view.pool.status === "settled" || closesInMs <= 0;
+  const n = view.pool.memberOrderIds.length;
 
   return (
-    <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-      <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-[22px] font-semibold leading-tight tracking-tight">Marketplace</h1>
+    <header>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
           <Badge tone={st.tone}>{st.label}</Badge>
+          <span className="tabular">{closed ? "Pooling window closed" : `Pooling window closes in ${fmtRemaining(closesInMs)}`}</span>
           {source === "fixture" && (
             <Badge tone="warn" title="The pool API is unreachable, so this is local sample data.">
               fixture data
@@ -48,25 +49,16 @@ export default function PoolHeader({
             </Badge>
           )}
         </div>
-        <p className="mt-0.5 text-sm text-muted">SOC 2 compliance seats, pooled across startups into one group price.</p>
-        <dl className="mt-3 flex flex-wrap gap-x-7 gap-y-2">
-          <HeaderStat value={String(view.pool.totalSeats)} label="seats in pool" />
-          <HeaderStat value={String(view.pool.memberOrderIds.length)} label="startups pooled" />
-          <HeaderStat value={closed ? "Closed" : fmtRemaining(closesInMs)} label={closed ? "pooling window" : "until the window closes"} />
-        </dl>
+        {view.demoMode && <DemoClock view={view} closesInMs={closesInMs} onChanged={onChanged} />}
       </div>
 
-      {view.demoMode && <DemoClock view={view} closesInMs={closesInMs} onChanged={onChanged} />}
-    </div>
-  );
-}
-
-function HeaderStat({ value, label }: { value: string; label: string }) {
-  return (
-    <div className="flex items-baseline gap-1.5">
-      <dd className="tabular order-1 text-lg font-semibold tracking-tight">{value}</dd>
-      <dt className="order-2 text-xs text-muted">{label}</dt>
-    </div>
+      <h1 className="mt-6 max-w-[34ch] text-[28px] font-semibold leading-[1.15] tracking-[-0.03em] sm:text-[38px]">
+        <span>{n} startups each want SOC 2 software.</span>{" "}
+        <span className="text-muted">
+          Instead of {n} founders each calling sales, our AI agent negotiates once for all of them.
+        </span>
+      </h1>
+    </header>
   );
 }
 
@@ -84,17 +76,14 @@ function DemoClock({ view, closesInMs, onChanged }: { view: PoolView; closesInMs
   }
 
   const btn =
-    "inline-flex h-7 items-center gap-1.5 rounded border border-line bg-white px-2 text-[11px] font-medium text-ink transition-colors hover:bg-canvas disabled:cursor-not-allowed disabled:opacity-50";
+    "inline-flex h-6 items-center gap-1 rounded px-1.5 text-[11px] font-medium text-muted transition-colors hover:bg-canvas hover:text-ink disabled:cursor-not-allowed disabled:opacity-50";
 
   return (
-    <div className="w-full shrink-0 rounded-lg border border-dashed border-line bg-white/60 p-2.5 lg:w-auto" aria-label="Demo clock">
-      <div className="flex items-baseline justify-between gap-3">
-        <span className="text-[11px] font-medium text-muted">Demo clock</span>
-        <span className="tabular text-[11px] text-faint">
-          {view.clockOffsetHours > 0 ? `+${Math.round(view.clockOffsetHours * 10) / 10}h ahead` : "real time"}
+    <div className="flex flex-col items-start sm:items-end" aria-label="Demo clock">
+      <div className="flex flex-wrap items-center gap-x-0.5 rounded-md border border-dashed border-line px-1.5 py-0.5">
+        <span className="px-1 text-[11px] text-faint">
+          Demo clock <span className="tabular">{view.clockOffsetHours > 0 ? `+${Math.round(view.clockOffsetHours * 10) / 10}h` : "real time"}</span>
         </span>
-      </div>
-      <div className="mt-1.5 flex flex-wrap gap-1.5">
         <button type="button" className={btn} disabled={pending !== null} onClick={() => run("plus", "/api/demo/clock", { advanceHours: 24 })}>
           {pending === "plus" && <Spinner />}+24h
         </button>
@@ -121,7 +110,7 @@ function DemoClock({ view, closesInMs, onChanged }: { view: PoolView; closesInMs
         </button>
       </div>
       {error && (
-        <p role="alert" className="mt-1.5 max-w-[320px] break-words text-[11px] text-danger">
+        <p role="alert" className="mt-1 max-w-[320px] break-words text-[11px] text-danger">
           {error}
         </p>
       )}

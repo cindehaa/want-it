@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Negotiation room, Stage variation</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#f4f5f6}
+a{color:#047857}a:hover{color:#059669}
+.tnum{font-variant-numeric:tabular-nums}
+@keyframes wi-pulse{0%{box-shadow:0 0 0 0 rgba(5,150,105,.55)}100%{box-shadow:0 0 0 10px rgba(5,150,105,0)}}
+.live-dot{animation:wi-pulse 1.6s cubic-bezier(.2,.8,.2,1) infinite}
+@keyframes wi-ring{0%{box-shadow:0 0 0 0 rgba(161,98,7,.45)}100%{box-shadow:0 0 0 12px rgba(161,98,7,0)}}
+.node--calling .node-dot{animation:wi-ring 1.6s ease-out infinite}
+@keyframes wi-turn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.turn--new{animation:wi-turn .32s cubic-bezier(.2,.8,.2,1) 1}
+@keyframes wi-bar{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}
+.wave span{display:inline-block;width:3px;height:14px;border-radius:2px;background:#059669;transform-origin:50% 100%;animation:wi-bar .9s ease-in-out infinite}
+.wave span:nth-child(2){animation-delay:.12s}.wave span:nth-child(3){animation-delay:.24s}.wave span:nth-child(4){animation-delay:.36s}
+@keyframes wi-flip{0%{transform:translateY(10px);opacity:0;color:#047857}60%{transform:translateY(0);opacity:1}100%{color:#12171c}}
+.price--new{animation:wi-flip .6s cubic-bezier(.2,.8,.2,1) 1}
+.rail-fill{transition:width .55s cubic-bezier(.22,1,.36,1)}
+@media (prefers-reduced-motion:reduce){.live-dot,.node--calling .node-dot,.turn--new,.wave span,.price--new{animation:none}.rail-fill{transition:none}}
+</style>
+</helmet>
+<div style="min-height: 860px; box-sizing: border-box; display: flex; flex-direction: column; font-family: Geist, system-ui, sans-serif; color: #12171c; background: #f4f5f6;">
+
+  <header style="height: 48px; box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; background: #ffffff; border-bottom: 1px solid #e1e4e8;">
+    <a href="Store-OneLine.dc.html" style="display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px; letter-spacing: -0.01em; color: #12171c; text-decoration: none;"><span aria-hidden="true" style="width: 10px; height: 10px; border-radius: 999px; background: #059669; display: inline-block;"></span>want-it</a>
+    <nav aria-label="Primary" style="display: flex; gap: 4px; font-size: 14px;">
+      <a href="Store-OneLine.dc.html" style="padding: 6px 12px; border-radius: 6px; color: #5f6a75; text-decoration: none;">Buy</a>
+      <a href="Market-MapFirst.dc.html" style="padding: 6px 12px; border-radius: 6px; color: #5f6a75; text-decoration: none;">Marketplace</a>
+      <a href="Main.dc.html" aria-current="page" style="padding: 6px 12px; border-radius: 6px; background: #12171c; color: #ffffff; text-decoration: none;">Negotiation</a>
+    </nav>
+  </header>
+
+  <main style="flex: 1 1 auto; max-width: 1180px; width: 100%; margin: 0 auto; box-sizing: border-box; padding: 32px 24px 28px; display: flex; flex-direction: column; gap: 28px;">
+
+    <section aria-label="Best group price" style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 24px;">
+      <div style="min-width: 0;">
+        <p style="margin: 0; font-size: 13px; font-weight: 500; color: #5f6a75;">Best group price so far for SOC 2 seats</p>
+        <p style="margin: 6px 0 0; display: flex; align-items: baseline; gap: 14px; line-height: 1;">
+          <span class="tnum {{priceCls}}" style="font-size: 72px; font-weight: 600; letter-spacing: -0.04em;">{{price}}</span>
+          <span style="font-size: 20px; color: #5f6a75;">per seat</span>
+          <span class="tnum" style="font-size: 16px; color: #8f98a2; text-decoration: line-through;">$30.00 list</span>
+          <span class="tnum" style="font-size: 13px; font-weight: 600; color: #047857; background: #e7f6ef; padding: 3px 7px; border-radius: 5px;">{{delta}}</span>
+        </p>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px; text-align: right;">
+        <p style="margin: 0; display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 500;">
+          <sc-if value="{{running}}" hint-placeholder-val="{{true}}"><span class="live-dot" aria-hidden="true" style="width: 8px; height: 8px; border-radius: 999px; background: #059669; display: inline-block;"></span></sc-if>
+          <span>{{statusLine}}</span>
+        </p>
+        <p class="tnum" style="margin: 0; font-size: 13px; color: #5f6a75;">249 seats from 12 startups, window closes in 2d 23h</p>
+      </div>
+    </section>
+
+    <section aria-label="Vendors called" style="display: flex; flex-direction: column; gap: 10px;">
+      <div aria-hidden="true" style="position: relative; height: 2px; background: #e1e4e8; border-radius: 2px; margin: 0 40px;">
+        <div class="rail-fill" style="position: absolute; left: 0; top: 0; height: 2px; background: #059669; border-radius: 2px; width: {{railPct}};"></div>
+      </div>
+      <ol style="list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px;">
+        <sc-for list="{{vendors}}" as="v" hint-placeholder-count="5">
+          <li class="node {{v.cls}}" style="display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center;">
+            <span class="node-dot" aria-hidden="true" style="width: 14px; height: 14px; border-radius: 999px; box-sizing: border-box; background: {{v.dotBg}}; border: 2px solid {{v.dotBorder}}; margin-top: -18px;"></span>
+            <span style="font-size: 14px; font-weight: 600; color: {{v.nameColor}};">{{v.name}}</span>
+            <span class="tnum" style="font-size: 13px; color: {{v.valueColor}};">{{v.value}}</span>
+          </li>
+        </sc-for>
+      </ol>
+    </section>
+
+    <section aria-label="Live call" style="flex: 1 1 auto; display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 20px;">
+      <div style="background: #ffffff; border: 1px solid #e1e4e8; border-radius: 12px; padding: 24px 28px; display: flex; flex-direction: column; gap: 18px; min-height: 360px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+          <h2 style="margin: 0; font-size: 15px; font-weight: 600;">{{callTitle}}</h2>
+          <span class="tnum" style="font-size: 13px; color: #5f6a75;">{{callClock}}</span>
+        </div>
+        <div style="flex: 1 1 auto; display: flex; flex-direction: column; justify-content: flex-end; gap: 14px;">
+          <sc-if value="{{empty}}" hint-placeholder-val="{{false}}">
+            <p style="margin: 0; font-size: 15px; color: #5f6a75;">{{emptyText}}</p>
+          </sc-if>
+          <sc-for list="{{turns}}" as="t" hint-placeholder-count="3">
+            <div class="turn {{t.cls}}" style="display: flex; flex-direction: column; gap: 4px; align-items: {{t.align}};">
+              <span style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 500; color: #5f6a75;">{{t.who}}<sc-if value="{{t.speaking}}" hint-placeholder-val="{{false}}"><span class="wave" aria-hidden="true" style="display: inline-flex; gap: 2px; align-items: flex-end; height: 14px;"><span></span><span></span><span></span><span></span></span></sc-if></span>
+              <p style="margin: 0; max-width: 85%; font-size: {{t.size}}; line-height: 1.4; color: {{t.color}}; background: {{t.bg}}; padding: 10px 14px; border-radius: 10px;">{{t.text}}</p>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <aside style="display: flex; flex-direction: column; gap: 14px;">
+        <div style="background: #ffffff; border: 1px solid #e1e4e8; border-radius: 12px; padding: 18px 20px; display: flex; flex-direction: column; gap: 12px;">
+          <h2 style="margin: 0; font-size: 13px; font-weight: 500; color: #5f6a75;">What the agent is citing</h2>
+          <p style="margin: 0; font-size: 15px; line-height: 1.4;">Offer in hand <strong class="tnum">{{inHand}}</strong></p>
+          <p style="margin: 0; font-size: 15px; line-height: 1.4;"><strong class="tnum">67 of 212</strong> startups walked away over price in 90 days</p>
+          <p style="margin: 0; font-size: 12px; color: #5f6a75;">Keewano, cached 2h ago</p>
+        </div>
+        <div style="background: #ffffff; border: 1px solid #e1e4e8; border-radius: 12px; padding: 18px 20px; display: flex; flex-direction: column; gap: 10px;">
+          <h2 style="margin: 0; font-size: 13px; font-weight: 500; color: #5f6a75;">Price after each call</h2>
+          <svg viewBox="0 0 300 64" width="100%" height="64" role="img" aria-label="Best price per seat after each call, stepping down from list" style="display: block; overflow: visible;">
+            <line x1="0" y1="8" x2="300" y2="8" stroke="#e1e4e8" stroke-dasharray="4 4"></line>
+            <polyline points="{{pts}}" fill="none" stroke="#059669" stroke-width="2.5" stroke-linejoin="round"></polyline>
+            <circle cx="{{lastX}}" cy="{{lastY}}" r="4" fill="#059669" stroke="#ffffff" stroke-width="2"></circle>
+          </svg>
+          <p class="tnum" style="margin: 0; font-size: 12px; color: #5f6a75;">From $30 list to {{price}}</p>
+        </div>
+        <a href="Neg-Timeline.dc.html" style="font-size: 13px; font-weight: 500; text-decoration: none; padding: 2px 0;">Details: transcripts, quotes, vendor policies</a>
+      </aside>
+    </section>
+
+    <footer style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 4px;">
+      <p style="margin: 0; font-size: 13px; color: #5f6a75;">{{footNote}}</p>
+      <button type="button" disabled="{{settleDisabled}}" style="height: 44px; padding: 0 20px; border-radius: 8px; border: 0; background: {{settleBg}}; color: #ffffff; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;">{{settleLabel}}</button>
+    </footer>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":860}}'>
+const AUDITLY = [
+  ["agent", "Hi, this is the want-it buying agent. I represent 12 startups, 249 SOC 2 seats in total. We have an offer in hand at $19 a seat. Can you beat it?"],
+  ["vendor", "Let me look at that volume. Are the accounts separate, and when do you need an answer?"],
+  ["agent", "Separate accounts per company, and the window closes in about 72 hours. What group tiers can you offer?"],
+  ["vendor", "For 200 seats and up I can do $18.50 a seat, first-year pricing, no per-account fee."],
+  ["agent", "Confirming: $18.50 per seat at 200 or more, separate accounts, no fee. Does that hold for seven days?"],
+  ["vendor", "Yes, seven days."]
+];
+const COMPLYKIT = [
+  ["agent", "Hi, this is the want-it buying agent, calling for 12 startups and 249 SOC 2 seats. Our best offer is $18.50 a seat. Can you beat it?"],
+  ["vendor", "At that volume our floor is $21. I can't beat $18.50 today."]
+];
+const STEPS = 13;
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { step: 0 }; }
+  componentDidMount() { this.timer = setInterval(() => this.setState((s) => ({ step: (s.step + 1) % STEPS })), 2100); }
+  componentWillUnmount() { clearInterval(this.timer); }
+  renderVals() {
+    const step = this.state.step;
+    const auditlyDone = step >= 7;
+    const complyActive = step >= 8 && step < 11;
+    const finished = step >= 11;
+    const best = auditlyDone ? 18.5 : 19;
+    const price = "$" + best.toFixed(2);
+    const delta = "-" + Math.round((1 - best / 30) * 100) + "%";
+    const justLanded = step === 7;
+
+    const mk = (name, kind, value) => {
+      const done = kind === "done" || kind === "best" || kind === "nobetter";
+      return {
+        name, value,
+        cls: kind === "calling" ? "node--calling" : "",
+        dotBg: kind === "best" ? "#059669" : done ? "#ffffff" : kind === "calling" ? "#fbf1d9" : "#f4f5f6",
+        dotBorder: kind === "best" ? "#059669" : done ? "#059669" : kind === "calling" ? "#a16207" : "#e1e4e8",
+        nameColor: kind === "waiting" ? "#8f98a2" : "#12171c",
+        valueColor: kind === "best" ? "#047857" : kind === "calling" ? "#a16207" : kind === "waiting" ? "#8f98a2" : "#5f6a75"
+      };
+    };
+    const vendors = [
+      mk("Certly", "done", "$22.93"),
+      mk("Vantly", auditlyDone ? "done" : "best", auditlyDone ? "$19.00" : "best, $19.00"),
+      mk("Trustwise", "done", "$20.00"),
+      auditlyDone ? mk("Auditly", "best", "best, $18.50") : mk("Auditly", "calling", "on the phone"),
+      finished ? mk("ComplyKit", "nobetter", "no better offer") : complyActive ? mk("ComplyKit", "calling", "on the phone") : mk("ComplyKit", "waiting", "next")
+    ];
+    const railPct = finished ? "100%" : auditlyDone ? "87%" : "62%";
+
+    let script = AUDITLY, shownCount = 0, who = "Auditly", callTitle = "Auditly, call 4 of 5", clockBase = 0;
+    if (step >= 1 && step <= 6) shownCount = step;
+    if (step === 7) shownCount = 6;
+    if (complyActive) { script = COMPLYKIT; shownCount = Math.max(0, step - 8); who = "ComplyKit"; callTitle = "ComplyKit, call 5 of 5"; clockBase = 0; }
+    if (finished) { script = COMPLYKIT; shownCount = 2; who = "ComplyKit"; callTitle = "ComplyKit, call 5 of 5, ended"; }
+    const all = script.slice(0, shownCount);
+    const last = all.slice(-3);
+    const turns = last.map((t, i) => {
+      const agent = t[0] === "agent";
+      const isLast = i === last.length - 1;
+      return {
+        who: agent ? "want-it agent" : who,
+        text: t[1],
+        align: agent ? "flex-end" : "flex-start",
+        bg: agent ? "#e7f6ef" : "#f4f5f6",
+        color: "#12171c",
+        size: isLast ? "17px" : "14px",
+        cls: isLast && !finished && step !== 7 ? "turn--new" : "",
+        speaking: isLast && !finished && step !== 7
+      };
+    });
+    const empty = turns.length === 0;
+    const emptyText = step === 0 ? "Dialing Auditly. Turns appear here as the call is transcribed." : step === 8 ? "Dialing ComplyKit. Turns appear here as the call is transcribed." : "";
+    const secs = (step >= 8 ? step - 8 : step) * 11;
+    const callClock = finished ? "0:33, ended" : step === 7 ? "1:12, transcribing" : Math.floor(secs / 60) + ":" + String(secs % 60).padStart(2, "0");
+
+    const statusLine = finished ? "Run finished, 4 quotes from 5 vendors" : step === 7 ? "Quote extracted from Auditly" : complyActive ? "On the phone with ComplyKit, call 5 of 5" : "On the phone with Auditly, call 4 of 5";
+    const inHand = auditlyDone ? "$18.50, Auditly" : "$19.00, Vantly";
+
+    const series = [30, 22.93, 19, 19];
+    if (auditlyDone) series.push(18.5);
+    if (finished) series.push(18.5);
+    const lo = 17, hi = 31;
+    const x = (i) => (i * 300) / 5;
+    const y = (v) => 8 + ((hi - v) / (hi - lo)) * 52;
+    const pts = series.map((v, i) => x(i).toFixed(1) + "," + y(v).toFixed(1)).join(" ");
+    const lastX = x(series.length - 1).toFixed(1);
+    const lastY = y(series[series.length - 1]).toFixed(1);
+
+    return {
+      price, delta, priceCls: justLanded ? "price--new" : "", running: !finished, statusLine,
+      vendors, railPct, callTitle, callClock, turns, empty, emptyText, inHand, pts, lastX, lastY,
+      footNote: finished ? "Settling applies $18.50 to every pooled startup whose price cap allows it." : "Settle is available when the last call ends.",
+      settleDisabled: !finished, settleBg: finished ? "#12171c" : "#b9c0c7",
+      settleLabel: finished ? "Settle pool at $18.50" : "Settle pool"
+    };
+  }
+}
+</script>
+</body>
+</html>

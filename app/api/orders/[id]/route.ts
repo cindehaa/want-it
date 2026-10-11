@@ -1,3 +1,4 @@
+import { tickAutoRun } from "@/lib/autoDispatch";
 import { NextResponse } from "next/server";
 import type { Order } from "@/lib/contracts";
 import { all, get } from "@/lib/db";
@@ -13,6 +14,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const { id } = await params;
   if (!get("orders", id)) return NextResponse.json({ error: "Order not found" }, { status: 404 });
 
+  await tickAutoRun(); // keep an automatic negotiation run moving while the buyer watches
   const pool = recomputePool(); // keeps held -> pooled current
   const order = get("orders", id)!;
   const members = pool.memberOrderIds.map((mid) => get("orders", mid)).filter((o): o is Order => !!o);

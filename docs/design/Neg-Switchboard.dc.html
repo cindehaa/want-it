@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Negotiation room, switchboard variation</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#f4f5f6}
+a{color:#047857}a:hover{color:#059669}
+.tnum{font-variant-numeric:tabular-nums}
+.node{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:8px;width:150px;text-align:center}
+.disc{width:64px;height:64px;border-radius:999px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;transition:background-color .4s ease,border-color .4s ease,color .4s ease}
+@keyframes wi-ring{0%{box-shadow:0 0 0 0 rgba(5,150,105,.45)}100%{box-shadow:0 0 0 16px rgba(5,150,105,0)}}
+.disc--calling{animation:wi-ring 1.6s ease-out infinite}
+@keyframes wi-beam{from{stroke-dashoffset:34}to{stroke-dashoffset:0}}
+.beam--active{stroke:#059669;stroke-width:2.5;stroke-dasharray:8 9;animation:wi-beam .8s linear infinite}
+.beam--done{stroke:#b9c0c7;stroke-width:1.5}
+.beam--waiting{stroke:#d7dce1;stroke-width:1.5;stroke-dasharray:3 6}
+@keyframes wi-turn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.caption--new{animation:wi-turn .32s cubic-bezier(.2,.8,.2,1) 1}
+@keyframes wi-flip{0%{transform:translateY(10px);opacity:0;color:#047857}60%{transform:translateY(0);opacity:1}100%{color:#12171c}}
+.price--new{animation:wi-flip .6s cubic-bezier(.2,.8,.2,1) 1}
+@keyframes wi-pulse{0%{box-shadow:0 0 0 0 rgba(5,150,105,.55)}100%{box-shadow:0 0 0 10px rgba(5,150,105,0)}}
+.live-dot{animation:wi-pulse 1.6s cubic-bezier(.2,.8,.2,1) infinite}
+@media (prefers-reduced-motion:reduce){.disc--calling,.beam--active,.caption--new,.price--new,.live-dot{animation:none}.disc{transition:none}}
+</style>
+</helmet>
+<div style="min-height: 860px; box-sizing: border-box; display: flex; flex-direction: column; font-family: Geist, system-ui, sans-serif; color: #12171c; background: #f4f5f6;">
+
+  <header style="height: 48px; box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; background: #ffffff; border-bottom: 1px solid #e1e4e8;">
+    <a href="Store-OneLine.dc.html" style="display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px; letter-spacing: -0.01em; color: #12171c; text-decoration: none;"><span aria-hidden="true" style="width: 10px; height: 10px; border-radius: 999px; background: #059669; display: inline-block;"></span>want-it</a>
+    <nav aria-label="Primary" style="display: flex; gap: 4px; font-size: 14px;">
+      <a href="Store-OneLine.dc.html" style="padding: 6px 12px; border-radius: 6px; color: #5f6a75; text-decoration: none;">Buy</a>
+      <a href="Market-MapFirst.dc.html" style="padding: 6px 12px; border-radius: 6px; color: #5f6a75; text-decoration: none;">Marketplace</a>
+      <a href="Neg-Switchboard.dc.html" aria-current="page" style="padding: 6px 12px; border-radius: 6px; background: #12171c; color: #ffffff; text-decoration: none;">Negotiation</a>
+    </nav>
+  </header>
+
+  <main style="flex: 1 1 auto; width: 100%; max-width: 1180px; margin: 0 auto; box-sizing: border-box; padding: 24px 24px 24px; display: flex; flex-direction: column; gap: 8px;">
+
+    <section aria-label="Best group price" style="display: flex; align-items: flex-end; justify-content: space-between; gap: 24px;">
+      <p style="margin: 0; display: flex; align-items: baseline; gap: 12px; line-height: 1;">
+        <span class="tnum {{priceCls}}" style="font-size: 48px; font-weight: 600; letter-spacing: -0.04em;">{{price}}</span>
+        <span style="font-size: 15px; color: #5f6a75;">best group price so far, <span class="tnum" style="text-decoration: line-through;">$30.00</span> list</span>
+      </p>
+      <p style="margin: 0; display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 500;">
+        <sc-if value="{{running}}" hint-placeholder-val="{{true}}"><span class="live-dot" aria-hidden="true" style="width: 8px; height: 8px; border-radius: 999px; background: #059669; display: inline-block;"></span></sc-if>
+        <span>{{statusLine}}</span>
+      </p>
+    </section>
+
+    <section aria-label="Agent and vendors" style="position: relative; width: 1000px; height: 560px; margin: 0 auto;">
+      <svg aria-hidden="true" width="1000" height="560" viewBox="0 0 1000 560" style="position: absolute; left: 0; top: 0; display: block;">
+        <sc-for list="{{beams}}" as="b" hint-placeholder-count="5">
+          <line x1="500" y1="470" x2="{{b.x}}" y2="{{b.y}}" class="{{b.cls}}" stroke-linecap="round"></line>
+        </sc-for>
+      </svg>
+
+      <sc-for list="{{vendors}}" as="v" hint-placeholder-count="5">
+        <div class="node" style="left: {{v.x}}px; top: {{v.y}}px;">
+          <span class="disc {{v.discCls}}" style="background: {{v.bg}}; border: 2px solid {{v.border}}; color: {{v.fg}};">{{v.initial}}</span>
+          <span style="font-size: 14px; font-weight: 600; color: {{v.nameColor}};">{{v.name}}</span>
+          <span class="tnum" style="font-size: 13px; color: {{v.valueColor}}; line-height: 1.3;">{{v.value}}</span>
+        </div>
+      </sc-for>
+
+      <div class="node" style="left: 500px; top: 470px; width: 200px;">
+        <span class="disc" style="width: 84px; height: 84px; background: #12171c; border: 2px solid #12171c; color: #ffffff; font-size: 12px; line-height: 1.2; padding: 0 10px;">want-it agent</span>
+        <span class="tnum" style="font-size: 13px; color: #5f6a75;">249 seats from 12 startups</span>
+      </div>
+    </section>
+
+    <section aria-label="Live line" style="display: flex; align-items: center; gap: 14px; min-height: 64px; background: #ffffff; border: 1px solid #e1e4e8; border-radius: 12px; padding: 14px 20px;">
+      <span style="flex-shrink: 0; font-size: 13px; font-weight: 600; color: {{captionWhoColor}}; min-width: 110px;">{{captionWho}}</span>
+      <p class="{{captionCls}}" style="margin: 0; font-size: 17px; line-height: 1.4; flex: 1 1 auto; min-width: 0;">{{captionText}}</p>
+      <a href="Neg-Timeline.dc.html" style="flex-shrink: 0; font-size: 13px; font-weight: 500; text-decoration: none;">Full transcript</a>
+    </section>
+
+    <footer style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 8px;">
+      <p style="margin: 0; font-size: 13px; color: #5f6a75;">{{footNote}}</p>
+      <button type="button" disabled="{{settleDisabled}}" style="height: 44px; padding: 0 20px; border-radius: 8px; border: 0; background: {{settleBg}}; color: #ffffff; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;">{{settleLabel}}</button>
+    </footer>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":860}}'>
+const POS = [
+  { x: 162, y: 347 }, { x: 294, y: 175 }, { x: 500, y: 110 }, { x: 706, y: 175 }, { x: 838, y: 347 }
+];
+const NAMES = ["Certly", "Vantly", "Trustwise", "Auditly", "ComplyKit"];
+const AUDITLY = [
+  ["agent", "We represent 12 startups, 249 SOC 2 seats. We have an offer in hand at $19 a seat. Can you beat it?"],
+  ["vendor", "Let me look at that volume. Are the accounts separate, and when do you need an answer?"],
+  ["agent", "Separate accounts per company, and the window closes in about 72 hours. What group tiers can you offer?"],
+  ["vendor", "For 200 seats and up I can do $18.50 a seat, first-year pricing, no per-account fee."],
+  ["agent", "Confirming: $18.50 per seat at 200 or more, separate accounts, no fee. Does that hold for seven days?"],
+  ["vendor", "Yes, seven days."]
+];
+const COMPLYKIT = [
+  ["agent", "Calling for 12 startups and 249 SOC 2 seats. Our best offer is $18.50 a seat. Can you beat it?"],
+  ["vendor", "At that volume our floor is $21. I can't beat $18.50 today."]
+];
+const STEPS = 13;
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { step: 0 }; }
+  componentDidMount() { this.timer = setInterval(() => this.setState((s) => ({ step: (s.step + 1) % STEPS })), 2100); }
+  componentWillUnmount() { clearInterval(this.timer); }
+  renderVals() {
+    const step = this.state.step;
+    const auditlyDone = step >= 7;
+    const complyActive = step >= 8 && step < 11;
+    const finished = step >= 11;
+    const best = auditlyDone ? 18.5 : 19;
+    const kinds = [
+      "done",
+      auditlyDone ? "done" : "best",
+      "done",
+      auditlyDone ? "best" : "calling",
+      finished ? "nobetter" : complyActive ? "calling" : "waiting"
+    ];
+    const values = ["$22.93", "$19.00", "$20.00", auditlyDone ? "$18.50" : "on the phone", finished ? "no better offer" : complyActive ? "on the phone" : "next"];
+    const vendors = NAMES.map((name, i) => {
+      const k = kinds[i];
+      const done = k === "done" || k === "best" || k === "nobetter";
+      return {
+        name, x: POS[i].x, y: POS[i].y, initial: name.charAt(0),
+        value: k === "best" ? "best, " + values[i] : values[i],
+        discCls: k === "calling" ? "disc--calling" : "",
+        bg: k === "best" ? "#059669" : done ? "#ffffff" : k === "calling" ? "#ffffff" : "#f4f5f6",
+        border: k === "best" ? "#059669" : done ? "#059669" : k === "calling" ? "#059669" : "#e1e4e8",
+        fg: k === "best" ? "#ffffff" : k === "waiting" ? "#8f98a2" : "#12171c",
+        nameColor: k === "waiting" ? "#8f98a2" : "#12171c",
+        valueColor: k === "best" ? "#047857" : k === "calling" ? "#047857" : k === "waiting" ? "#8f98a2" : "#5f6a75"
+      };
+    });
+    const beams = NAMES.map((n, i) => ({ x: POS[i].x, y: POS[i].y, cls: kinds[i] === "calling" ? "beam--active" : kinds[i] === "waiting" ? "beam--waiting" : "beam--done" }));
+
+    let script = AUDITLY, count = 0, who = "Auditly";
+    if (step >= 1 && step <= 6) count = step;
+    if (step === 7) count = 6;
+    if (complyActive) { script = COMPLYKIT; count = Math.max(0, step - 8); who = "ComplyKit"; }
+    if (finished) { script = COMPLYKIT; count = 2; who = "ComplyKit"; }
+    const last = script[count - 1];
+    const captionWho = last ? (last[0] === "agent" ? "want-it agent" : who) : (step === 0 ? "Dialing Auditly" : step === 8 ? "Dialing ComplyKit" : "");
+    const captionText = last ? last[1] : "The live line appears here as the call is transcribed.";
+    return {
+      price: "$" + best.toFixed(2), priceCls: step === 7 ? "price--new" : "", running: !finished,
+      statusLine: finished ? "Run finished, 4 quotes from 5 vendors" : step === 7 ? "Quote extracted from Auditly" : complyActive ? "On the phone with ComplyKit, call 5 of 5" : "On the phone with Auditly, call 4 of 5",
+      vendors, beams,
+      captionWho, captionText, captionWhoColor: last && last[0] === "agent" ? "#047857" : "#12171c",
+      captionCls: last && !finished ? "caption--new" : "",
+      footNote: finished ? "Settling applies $18.50 to every pooled startup whose price cap allows it." : "Settle is available when the last call ends.",
+      settleDisabled: !finished, settleBg: finished ? "#12171c" : "#b9c0c7",
+      settleLabel: finished ? "Settle pool at $18.50" : "Settle pool"
+    };
+  }
+}
+</script>
+</body>
+</html>
