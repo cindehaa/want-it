@@ -58,7 +58,7 @@ export default function Stage({ lanes, facts, evidence, now, windowText, phase, 
   const total = lanes.length;
   const ranked = rankLanes(lanes);
   const bestLane = ranked[0]?.eligible && (ranked[0].eff?.effectiveCents ?? Infinity) < ranked[0].vendor.listPricePerSeatCents ? ranked[0] : null;
-  const refList = bestLane?.vendor.listPricePerSeatCents ?? 3000; // reference list price shown at checkout
+  const refList = 3000; // the reference list price buyers saw at checkout (same anchor as the storefront)
   const bestCents = bestLane?.eff?.effectiveCents ?? null;
   const price = bestCents != null ? usdSeat(bestCents) : "—"; // no supplier-stated quote has landed yet
   const deltaPct = bestCents != null ? Math.round((1 - bestCents / refList) * 100) : 0;
