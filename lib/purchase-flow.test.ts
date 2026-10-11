@@ -1,3 +1,4 @@
+import { EMPTY_CALL_AUDIO } from "@/lib/contracts";
 import assert from "node:assert/strict";
 import { after, before, beforeEach, test } from "node:test";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -53,7 +54,7 @@ test("new orders cannot be stranded in a settled or closed pool", async () => {
 });
 
 test("settlement and reset refuse to discard an active call", async () => {
-  const call: Call = { id: "call_active", poolId: "pool_soc2", vendorId: "certly", sequence: 1, dialCallId: null, status: "queued", source: "live", recordedAt: null, instruction: "test", transcriptTurns: [], error: null, startedAt: new Date().toISOString(), endedAt: null };
+  const call: Call = { id: "call_active", poolId: "pool_soc2", vendorId: "certly", sequence: 1, dialCallId: null, vendorDialCallId: null, audio: { ...EMPTY_CALL_AUDIO }, status: "queued", source: "live", recordedAt: null, instruction: "test", transcriptTurns: [], error: null, startedAt: new Date().toISOString(), endedAt: null };
   store.put("calls", call);
   assert.equal((await settle()).status, 409);
   assert.equal(store.get("pools", "pool_soc2")?.status, "open");
@@ -110,7 +111,7 @@ test("parallel calls are not dialed after stopping during persona setup", async 
 test("order preview ignores unconfirmed and expired quotes", async () => {
   const order: Order = await (await create()).json();
   const stamp = new Date().toISOString();
-  const call: Call = { id: "call_fixture", poolId: "pool_soc2", vendorId: "certly", sequence: 1, dialCallId: null, status: "extracted", source: "recorded_replay", recordedAt: stamp, instruction: "test", transcriptTurns: [], error: null, startedAt: stamp, endedAt: stamp };
+  const call: Call = { id: "call_fixture", poolId: "pool_soc2", vendorId: "certly", sequence: 1, dialCallId: null, vendorDialCallId: null, audio: { ...EMPTY_CALL_AUDIO }, status: "extracted", source: "recorded_replay", recordedAt: stamp, instruction: "test", transcriptTurns: [], error: null, startedAt: stamp, endedAt: stamp };
   store.put("calls", call);
   const quote: Quote = { id: "quote_fixture", callId: call.id, vendorId: "certly", tiers: [{ minSeats: 1, pricePerSeatCents: 2100 }], perAccountFeeCents: 0, separateAccountsConfirmed: null, expiresAt: null, conditions: [], evidence: "fixture", status: "supplier_stated", createdAt: stamp };
   const route = await import("@/app/api/orders/[id]/route");

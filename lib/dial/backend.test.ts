@@ -25,8 +25,11 @@ test("default live negotiate-all starts all five calls within two seconds", asyn
   const started: number[] = [];
   t.mock.method(globalThis, "fetch", async (_url: string, opts: RequestInit) => {
     if (opts.method === "PATCH") { await new Promise((r) => setTimeout(r, 40)); return json({ number: { id: "number" } }); }
-    started.push(Date.now());
-    return json({ call: { id: `dial_${started.length}`, status: { state: "Queued" } } });
+    if (opts.method === "POST") {
+      started.push(Date.now());
+      return json({ call: { id: `dial_${started.length}`, status: { state: "Queued" } } });
+    }
+    return json({ call: { id: String(_url).split("/").at(-1), status: { state: "Terminated", terminationType: "completed" }, recordingAvailable: true, duration: 1 } });
   });
   const route = await import("@/app/api/pool/negotiate-all/route");
   const start = Date.now();
@@ -38,6 +41,9 @@ test("default live negotiate-all starts all five calls within two seconds", asyn
   const calls = store.all("calls");
   assert.equal(calls.length, 5);
   assert.equal(new Set(calls.map((c) => c.sequence)).size, 5);
+  const refresh = await import("@/lib/dial/refresh");
+  const finished = await Promise.all(calls.map((call) => refresh.refreshCall(call.id, { force: true })));
+  assert.ok(finished.every((r) => r.call?.audio.recordingUrl === `/api/calls/${r.call.id}/audio`));
   (await import("@/lib/dial/runner")).stopRun();
 });
 
@@ -54,4 +60,37 @@ test("finished calls expose a safe recording URL and preserve the pool response"
   assert.ok(!JSON.stringify(result.call?.audio).includes("backend-test-key"));
   const pool = await (await import("@/lib/poolView")).buildPoolView();
   for (const key of ["now", "clockOffsetHours", "demoMode", "pool", "orders", "vendors", "calls", "quotes", "evidence", "timeSaved"]) assert.ok(key in pool);
+});
+
+
+test("recording proxy forwards authentication and byte ranges without exposing the key", async (t) => {
+  const stamp = new Date().toISOString();
+  const contracts = await import("@/lib/contracts");
+  store.put("calls", contracts.Call.parse({ id: "call_proxy", poolId: "pool_soc2", vendorId: "certly", sequence: 1, dialCallId: "dial_proxy", status: "ended", source: "live", recordedAt: null, instruction: "test", transcriptTurns: [], error: null, startedAt: stamp, endedAt: stamp }));
+  const bytes = new Uint8Array(44);
+  bytes.set(new TextEncoder().encode("RIFF"));
+  t.mock.method(globalThis, "fetch", async (url: string, opts: RequestInit) => {
+    assert.ok(String(url).startsWith("https://"));
+    assert.ok(String(url).endsWith("/calls/dial_proxy/recording"));
+    const headers = new Headers(opts.headers);
+    assert.equal(headers.get("Authorization"), "Bearer backend-test-key");
+    assert.equal(headers.get("Range"), "bytes=0-43");
+    return new Response(bytes, { status: 206, headers: { "Content-Type": "binary/octet-stream", "Content-Range": "bytes 0-43/44", "Content-Length": "44" } });
+  });
+  const route = await import("@/app/api/calls/[id]/audio/route");
+  const result = await route.GET(new Request("http://localhost/api/calls/call_proxy/audio", { headers: { Range: "bytes=0-43" } }), { params: Promise.resolve({ id: "call_proxy" }) });
+  assert.equal(result.status, 206);
+  assert.equal(result.headers.get("Content-Type"), "audio/wav");
+  assert.equal(result.headers.get("Content-Range"), "bytes 0-43/44");
+  assert.ok(![...result.headers.values()].join(" ").includes("backend-test-key"));
+  assert.equal((await result.arrayBuffer()).byteLength, 44);
+});
+
+test("the saved library exposes all five playable calls without creating order or call rows", async () => {
+  const before = store.all("calls");
+  const route = await import("@/app/api/recordings/route");
+  const result = await route.GET().json();
+  assert.equal(result.calls.length, 5);
+  assert.ok(result.calls.every((call: import("@/lib/contracts").Call) => call.audio.recordingUrl?.startsWith("/recordings/") && call.audio.liveUrl === null));
+  assert.deepEqual(store.all("calls"), before);
 });

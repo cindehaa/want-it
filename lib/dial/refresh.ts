@@ -1,8 +1,9 @@
 // Poll Dial for live calls and run quote extraction, idempotently. Shared by GET /api/calls/[id] and
 // (via refreshActiveCalls) GET /api/pool. In-memory locks guard against concurrent refreshes in one server.
+import { EMPTY_CALL_AUDIO } from "@/lib/contracts";
 import type { Call, Quote } from "@/lib/contracts";
 import { all, get, put } from "@/lib/db";
-import { getCall, type DialCallView } from "@/lib/dial/client";
+import { getCall, vendorLegFor, type DialCallView } from "@/lib/dial/client";
 import { extractQuote } from "@/lib/quote/extract";
 
 export type RefreshResult = { call: Call | null; quote: Quote | null; pollError?: string };
@@ -25,7 +26,11 @@ export const quoteForCall = (callId: string): Quote | null => all("quotes").find
 export const canRetryExtraction = (c: Call) => c.status === "failed" && c.transcriptTurns.length > 0 && (c.error ?? "").startsWith(EXTRACTION_FAILED_PREFIX) && !quoteForCall(c.id);
 
 function applyDial(call: Call, v: DialCallView): Call {
-  const next: Call = { ...call, status: v.status };
+  const next: Call = { ...call, status: v.status, audio: { ...EMPTY_CALL_AUDIO } };
+  if (["ended", "transcribed", "failed"].includes(v.status) && v.recordingAvailable === true) {
+    next.audio.recordingUrl = `/api/calls/${encodeURIComponent(call.id)}/audio`;
+    next.audio.expiresAt = null;
+  }
   if (v.transcriptTurns && v.transcriptTurns.length > 0) {
     next.transcriptTurns = v.transcriptTurns.map((t) => ({ speaker: t.speaker, text: t.text, startMs: t.startMs }));
   }
@@ -53,7 +58,9 @@ async function doRefresh(id: string, opts: { force?: boolean; retryExtraction?: 
       s.lastPoll.set(id, Date.now());
       const r = await getCall(call.dialCallId);
       if (r.ok) {
-        call = put("calls", applyDial(call, r.data));
+        const next = applyDial(call, r.data);
+        next.vendorDialCallId ??= await vendorLegFor(r.data);
+        call = put("calls", next);
       } else {
         pollError = r.error;
         if (!r.retryable) call = fail(call, r.error); // 401/404/etc: will never succeed

@@ -29,6 +29,11 @@ export type DialCallView = {
   createdAt: string | null;
   transcript: string | null;
   transcriptTurns: DialTurn[] | null; // null until the call has a transcript
+  recordingAvailable: boolean | null;
+  from: string | null;
+  to: string | null;
+  direction: string | null;
+  callStartedAt: string | null;
   error: string | null; // set when status === 'failed'
 };
 
@@ -42,6 +47,11 @@ type RawCall = {
   createdAt?: unknown;
   transcript?: unknown;
   transcriptTurns?: unknown;
+  recordingAvailable?: unknown;
+  from?: unknown;
+  to?: unknown;
+  direction?: unknown;
+  callStartedAt?: unknown;
 };
 
 const FAILED_TERMINATIONS: Record<string, string> = {
@@ -122,6 +132,11 @@ export function normalizeCall(raw: RawCall): DialCallView | null {
 
   return {
     dialCallId: raw.id,
+    recordingAvailable: typeof raw.recordingAvailable === "boolean" ? raw.recordingAvailable : null,
+    from: typeof raw.from === "string" ? raw.from : null,
+    to: typeof raw.to === "string" ? raw.to : null,
+    direction: typeof raw.direction === "string" ? raw.direction : null,
+    callStartedAt: typeof raw.callStartedAt === "string" ? raw.callStartedAt : null,
     status,
     state,
     terminationType,
@@ -139,12 +154,16 @@ export function normalizeCall(raw: RawCall): DialCallView | null {
 /** Base URLs to try, in order. Docs say /api/v1; a guide example used /v1, so fall back on 404. */
 let resolvedBase: string | null = null;
 function candidateBases(): string[] {
-  const configured = (process.env.DIAL_BASE_URL || DEFAULT_BASE).replace(/\/+$/, "");
+  const configured = normalizeBase(process.env.DIAL_BASE_URL || DEFAULT_BASE);
   const alt = configured.endsWith("/api/v1") ? configured.replace(/\/api\/v1$/, "/v1") : "https://api.getdial.ai/v1";
   const first = resolvedBase ?? configured;
   return first === configured ? [configured, alt] : [first, configured, alt].filter((v, i, a) => a.indexOf(v) === i);
 }
-export const dialBaseInUse = () => resolvedBase ?? (process.env.DIAL_BASE_URL || DEFAULT_BASE).replace(/\/+$/, "");
+function normalizeBase(base: string): string {
+  const trimmed = base.trim().replace(/\/+$/, "");
+  return /^https?:\/\//.test(trimmed) ? trimmed : `https://${trimmed}`;
+}
+export const dialBaseInUse = () => resolvedBase ?? normalizeBase(process.env.DIAL_BASE_URL || DEFAULT_BASE);
 
 function friendlyError(status: number, code: string | undefined, msg: string): string {
   const base = `Dial ${status}${code ? ` ${code}` : ""}: ${msg}`;
@@ -280,4 +299,39 @@ export async function listNumbers(): Promise<DialResult<DialNumber[]>> {
   if (!r.ok) return r;
   const raw = Array.isArray(r.data) ? r.data : ((r.data as { numbers?: unknown[] } | null)?.numbers ?? []);
   return { ok: true, data: raw.map(normalizeNumber).filter((n): n is DialNumber => !!n) };
+}
+
+/** Authenticated WAV recording download. Verified against the real API, including byte ranges. */
+export async function getRecording(dialCallId: string, range?: string): Promise<Response> {
+  const key = process.env.DIAL_API_KEY;
+  if (!key) return new Response(null, { status: 503 });
+  return fetch(`${candidateBases()[0]}/calls/${encodeURIComponent(dialCallId)}/recording`, {
+    headers: { Authorization: `Bearer ${key}`, ...(range ? { Range: range } : {}) },
+    signal: AbortSignal.timeout(30_000),
+    cache: "no-store",
+    redirect: "error",
+  });
+}
+
+let inboundCache: { key: string; expires: number; pending: Promise<DialCallView[]> } | null = null;
+
+/** Both legs have separate ids. Match only an unambiguous reversed pair at the same start time. */
+export async function vendorLegFor(buyer: DialCallView): Promise<string | null> {
+  if (buyer.direction !== "outbound" || !buyer.from || !buyer.to || !buyer.callStartedAt) return null;
+  const key = `${process.env.DIAL_API_KEY ?? ""}:${dialBaseInUse()}`;
+  if (!inboundCache || inboundCache.key !== key || inboundCache.expires < Date.now()) {
+    inboundCache = { key, expires: Date.now() + 5000, pending: listCalls({ direction: "inbound" }).then((r) => r.ok ? r.data.calls : []) };
+  }
+  const started = Date.parse(buyer.callStartedAt);
+  const matches = (await inboundCache.pending).filter((c) =>
+    c.direction === "inbound" && c.from === buyer.to && c.to === buyer.from && c.callStartedAt &&
+    Math.abs(Date.parse(c.callStartedAt) - started) < 5000,
+  );
+  // Dial's inbound leg normally retains the caller/callee order instead of reversing it.
+  const sameDirection = (await inboundCache.pending).filter((c) =>
+    c.direction === "inbound" && c.from === buyer.from && c.to === buyer.to && c.callStartedAt &&
+    Math.abs(Date.parse(c.callStartedAt) - started) < 5000,
+  );
+  const candidates = [...matches, ...sameDirection].filter((c, i, a) => a.findIndex((x) => x.dialCallId === c.dialCallId) === i);
+  return candidates.length === 1 ? candidates[0].dialCallId : null;
 }
