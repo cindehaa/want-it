@@ -20,7 +20,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { settleOrders, type Settlement } from "@/lib/settle";
 import { Order as OrderSchema, Quote as QuoteSchema } from "@/lib/contracts";
-import type { Order, Quote, PoolView, Vendor } from "@/lib/contracts";
+import type { Order, Quote, PoolView, Vendor, Call } from "@/lib/contracts";
 
 const BASE = (process.env.BASE_URL ?? "http://localhost:3103").replace(/\/+$/, "");
 const DB_PATH = process.env.DB_PATH;
@@ -68,9 +68,11 @@ async function scenario(label: string, title: string, fn: () => Promise<void> | 
 // ---------------------------------------------------------------------------------------------
 // HTTP helpers
 // ---------------------------------------------------------------------------------------------
-type Res<T = any> = { status: number; json: T; text: string };
+type ApiError = { error: string };
+type OrderView = { order: Order };
+type Res<T = unknown> = { status: number; json: T; text: string };
 
-async function api<T = any>(method: "GET" | "POST", p: string, body?: unknown): Promise<Res<T>> {
+async function api<T = unknown>(method: "GET" | "POST", p: string, body?: unknown): Promise<Res<T>> {
   const res = await fetch(BASE + p, {
     method,
     headers: body !== undefined ? { "content-type": "application/json" } : undefined,
@@ -78,13 +80,13 @@ async function api<T = any>(method: "GET" | "POST", p: string, body?: unknown): 
     signal: AbortSignal.timeout(90_000), // first hit of a route compiles it in dev
   });
   const text = await res.text();
-  let json: any = null;
+  let json: unknown = null;
   try {
     json = JSON.parse(text);
   } catch {
     /* non-JSON body */
   }
-  return { status: res.status, json, text };
+  return { status: res.status, json: json as T, text };
 }
 
 async function reset(): Promise<PoolView> {
@@ -263,8 +265,8 @@ async function main() {
     check("every order is either a member or excluded (exactly one)", v.orders.every((o) => v.pool.memberOrderIds.includes(o.id) !== v.pool.exclusions.some((e) => e.orderId === o.id)));
 
     // orders placed through the API behave the same
-    const wc = await api("POST", "/api/orders", orderBody({ buyerName: "Wrong Cat Co", category: "dev_tools", seats: 3 }));
-    const ed = await api("POST", "/api/orders", orderBody({ buyerName: "Too Early Co", seats: 4, deadline: new Date(windowClose - 3600_000).toISOString() }));
+    const wc = await api<Order>("POST", "/api/orders", orderBody({ buyerName: "Wrong Cat Co", category: "dev_tools", seats: 3 }));
+    const ed = await api<Order>("POST", "/api/orders", orderBody({ buyerName: "Too Early Co", seats: 4, deadline: new Date(windowClose - 3600_000).toISOString() }));
     check("POST wrong-category order accepted (201)", wc.status === 201, `${wc.status} ${wc.text.slice(0, 200)}`);
     check("POST early-deadline order accepted (201)", ed.status === 201, `${ed.status} ${ed.text.slice(0, 200)}`);
     const v2 = await view();
@@ -277,8 +279,8 @@ async function main() {
   await scenario("2", "Same idempotencyKey posted twice -> one order", async () => {
     const before = await reset();
     const body = orderBody({ idempotencyKey: uniqueKey("idem"), seats: 5 });
-    const r1 = await api("POST", "/api/orders", body);
-    const r2 = await api("POST", "/api/orders", body);
+    const r1 = await api<Order>("POST", "/api/orders", body);
+    const r2 = await api<Order>("POST", "/api/orders", body);
     check("first POST -> 201", r1.status === 201, `${r1.status} ${r1.text.slice(0, 200)}`);
     check("second POST -> 200/201 (not an error)", r2.status === 200 || r2.status === 201, `${r2.status} ${r2.text.slice(0, 200)}`);
     check("same order id returned", !!r1.json?.id && r1.json?.id === r2.json?.id, `${r1.json?.id} vs ${r2.json?.id}`);
@@ -288,18 +290,18 @@ async function main() {
     eq("order appears exactly once in pool members", after.pool.memberOrderIds.filter((id) => id === r1.json?.id).length, 1);
 
     // same key, different payload: still the original order, nothing new
-    const r3 = await api("POST", "/api/orders", { ...body, seats: 99, buyerName: "Different Body" });
+    const r3 = await api<Order>("POST", "/api/orders", { ...body, seats: 99, buyerName: "Different Body" });
     check("same key + different body -> original order returned", r3.json?.id === r1.json?.id && r3.json?.seats === 5, `${r3.status} ${r3.text.slice(0, 200)}`);
 
     // concurrent duplicates (race on the unique index)
     const raceBody = orderBody({ idempotencyKey: uniqueKey("race"), seats: 2 });
-    const [a, b] = await Promise.all([api("POST", "/api/orders", raceBody), api("POST", "/api/orders", raceBody)]);
+    const [a, b] = await Promise.all([api<Order>("POST", "/api/orders", raceBody), api<Order>("POST", "/api/orders", raceBody)]);
     check("concurrent duplicate POSTs return the same id", !!a.json?.id && a.json?.id === b.json?.id, `${a.status}:${a.json?.id} ${b.status}:${b.json?.id}`);
     const after2 = await view();
     eq("concurrent duplicates add exactly one more order", after2.orders.length, after.orders.length + 1);
 
     // different key => different order
-    const r4 = await api("POST", "/api/orders", orderBody({ idempotencyKey: uniqueKey("other"), seats: 1 }));
+    const r4 = await api<Order>("POST", "/api/orders", orderBody({ idempotencyKey: uniqueKey("other"), seats: 1 }));
     check("different key -> different order", r4.status === 201 && r4.json?.id !== r1.json?.id);
   });
 
@@ -320,9 +322,9 @@ async function main() {
     eq("pool.totalSeats dropped by the order's seats (7)", v2.pool.totalSeats, v1.pool.totalSeats - 7);
     check("order no longer a pool member", !v2.pool.memberOrderIds.includes(id));
     eq("exclusions has reason 'canceled' for it", v2.pool.exclusions.find((e) => e.orderId === id)?.reason, "canceled");
-    eq("GET /api/orders/:id status", (await api("GET", `/api/orders/${id}`)).json?.order?.status, "canceled_by_buyer");
+    eq("GET /api/orders/:id status", (await api<OrderView>("GET", `/api/orders/${id}`)).json?.order?.status, "canceled_by_buyer");
 
-    const c2 = await api("POST", `/api/orders/${id}/cancel`);
+    const c2 = await api<ApiError>("POST", `/api/orders/${id}/cancel`);
     eq("second cancel -> 409", c2.status, 409);
     check("second cancel has an error message", typeof c2.json?.error === "string" && c2.json.error.length > 0);
     eq("cancel unknown order -> 404", (await api("POST", "/api/orders/ord_does_not_exist/cancel")).status, 404);
@@ -330,7 +332,7 @@ async function main() {
     // settle: canceled order must never be deal_applied / list_price / charged
     const s = await api<PoolView>("POST", "/api/pool/settle");
     check("settle -> 200", s.status === 200, `${s.status} ${s.text.slice(0, 200)}`);
-    const after = (await api("GET", `/api/orders/${id}`)).json?.order as Order;
+    const after = (await api<OrderView>("GET", `/api/orders/${id}`)).json?.order;
     eq("after settle: still canceled_by_buyer", after?.status, "canceled_by_buyer");
     check("after settle: never deal_applied/list_price/charged", !["deal_applied", "list_price", "charged"].includes(after?.status));
     eq("after settle: no final price", after?.finalPricePerSeatCents, null);
@@ -478,7 +480,7 @@ async function main() {
     eq("pool.status after settle", v.pool.status, "settled");
     const members = v.orders.filter((o) => v0.pool.memberOrderIds.includes(o.id));
     check("had members to settle", members.length > 0);
-    let bad: string[] = [];
+    const bad: string[] = [];
     for (const o of members) {
       const list = listFor(v.vendors, o);
       const wantStatus = o.maxPricePerSeatCents == null || o.maxPricePerSeatCents >= list ? "list_price" : "canceled_over_max";
@@ -499,7 +501,7 @@ async function main() {
   // ---- 4/5 end-to-end with a fixture quote inserted into SQLite --------------------------------
   await scenario("4e", "API settle with a fixture Certly quote (needs DB_PATH): deals, over-max cancels, links", async () => {
     if (!DB_PATH) return skip("e2e settle with fixture quote", "set DB_PATH to the dev server's SQLite file to enable");
-    let Database: any;
+    let Database: typeof import("better-sqlite3");
     try {
       Database = (await import("better-sqlite3")).default;
     } catch (e) {
@@ -554,7 +556,7 @@ async function main() {
     const dealOrder = v.orders.find((o) => o.status === "deal_applied");
     if (dealOrder) {
       eq("cancel of deal_applied order -> 409", (await api("POST", `/api/orders/${dealOrder.id}/cancel`)).status, 409);
-      const g = (await api("GET", `/api/orders/${dealOrder.id}`)).json;
+      const g = (await api<OrderView>("GET", `/api/orders/${dealOrder.id}`)).json;
       eq("GET /api/orders/:id reports the same status", g?.order?.status, "deal_applied");
     }
   });
@@ -562,18 +564,18 @@ async function main() {
   // ---- 6. negotiate error handling ------------------------------------------------------------
   await scenario("6", "POST /api/pool/negotiate: replay with no recordings; live without keys", async () => {
     await reset();
-    const bad = await api("POST", "/api/pool/negotiate", { mode: "bogus" });
+    const bad = await api<ApiError>("POST", "/api/pool/negotiate", { mode: "bogus" });
     check("invalid mode -> 400 with message", bad.status === 400 && typeof bad.json?.error === "string", `${bad.status} ${bad.text.slice(0, 200)}`);
 
     if (recordedCallsFor("certly") === 0) {
-      const r = await api("POST", "/api/pool/negotiate", { mode: "replay" });
+      const r = await api<ApiError>("POST", "/api/pool/negotiate", { mode: "replay" });
       check("replay with no recordings -> 4xx", r.status >= 400 && r.status < 500, `${r.status} ${r.text.slice(0, 200)}`);
       check("replay error message is clear (mentions recorded call)", typeof r.json?.error === "string" && /record/i.test(r.json.error), r.text.slice(0, 200));
       const v = await view();
       eq("failed replay has no side effects: pool still 'open'", v.pool.status, "open");
       eq("failed replay has no side effects: no call rows", v.calls.length, 0);
     } else {
-      const r = await api("POST", "/api/pool/negotiate", { mode: "replay" });
+      const r = await api<Call>("POST", "/api/pool/negotiate", { mode: "replay" });
       check("replay with a recording -> 201", r.status === 201, `${r.status} ${r.text.slice(0, 200)}`);
       eq("replay call source", r.json?.source, "recorded_replay");
       check("replay call carries its recordedAt timestamp", typeof r.json?.recordedAt === "string" && !Number.isNaN(Date.parse(r.json.recordedAt)), r.text.slice(0, 200));
@@ -584,7 +586,7 @@ async function main() {
     if (dialKeysLookConfigured()) {
       skip("live mode without keys -> 400", "Dial keys appear to be configured (env/.env.local); not placing a real call");
     } else {
-      const r = await api("POST", "/api/pool/negotiate", { mode: "live" });
+      const r = await api<ApiError>("POST", "/api/pool/negotiate", { mode: "live" });
       if (r.status === 400 && /not configured/i.test(r.json?.error ?? "")) {
         check("live without keys -> 400 'not configured' naming the missing vars", /DIAL_API_KEY/.test(r.json.error), r.text.slice(0, 300));
         const v = await view();
