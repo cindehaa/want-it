@@ -14,6 +14,11 @@ export type RunState = {
   finishedAt: string | null;
   error?: string | null;
   vendorStates?: Record<string, string>;
+  /** Parallel live run (every vendor dialed at once). Optional so fixtures stay valid. */
+  parallel?: boolean;
+  round?: number;
+  /** DIAL_PARALLEL_LANES is configured server-side (>= 2 lanes). */
+  parallelAvailable?: boolean;
 };
 
 export function parseRun(v: unknown): RunState | null {
@@ -30,6 +35,9 @@ export function parseRun(v: unknown): RunState | null {
     finishedAt: typeof r.finishedAt === "string" ? r.finishedAt : null,
     error: typeof r.error === "string" ? r.error : null,
     vendorStates: Object.fromEntries(((o.progress as { vendors?: { vendorId: string; state: string }[] } | undefined)?.vendors ?? []).map((v) => [v.vendorId, v.state])),
+    parallel: r.parallel === true,
+    round: typeof r.round === "number" ? r.round : 1,
+    parallelAvailable: o.parallelAvailable === true,
   };
 }
 

@@ -16,6 +16,7 @@ import { bestEffectiveQuote, buildInstruction, effectiveAllIn } from "@/lib/dial
 import { personaFor, vendorMode } from "@/lib/dial/vendorPersonas";
 import { loadRecorded, pickRecording } from "@/lib/dial/recorded";
 import { canRetryExtraction, isDone, refreshActiveCalls, refreshCall } from "@/lib/dial/refresh";
+import { PARALLEL_NEEDS_LANES_ERROR, parallelAvailable, parallelLanes, parseParallelLanes, type LaneConfig } from "@/lib/dial/lanes";
 
 export type NegotiateMode = "live" | "replay";
 export type NegotiateResult = { status: number; body: Record<string, unknown> };
@@ -216,6 +217,12 @@ export type RunState = {
   finishedAt: string | null;
   error: string | null; // set when the run stopped because of a configuration/pool problem
   extractionRetried: string[]; // call ids whose failed extraction was auto-retried once
+  // Parallel live mode (DIAL_PARALLEL_LANES): round 1 dials every lane at once, round 2 calls back the top 2 vendors.
+  parallel: boolean;
+  round: 1 | 2; // current round (parallel runs only; sequential runs stay at 1)
+  round2: boolean; // whether a callback round is wanted after round 1
+  round2Vendors: string[] | null; // null until round 2 was decided; [] when skipped
+  round2StartedAt: string | null;
 };
 
 function readRun(): RunState | null {
@@ -224,7 +231,10 @@ function readRun(): RunState | null {
     if (!raw) return null;
     const r = JSON.parse(raw) as Partial<RunState>;
     if (typeof r.running !== "boolean" || (r.mode !== "live" && r.mode !== "replay") || !Array.isArray(r.order) || typeof r.startedAt !== "string") return null;
-    return { running: r.running, mode: r.mode, order: r.order, startedAt: r.startedAt, finishedAt: r.finishedAt ?? null, error: r.error ?? null, extractionRetried: r.extractionRetried ?? [] };
+    return {
+      running: r.running, mode: r.mode, order: r.order, startedAt: r.startedAt, finishedAt: r.finishedAt ?? null, error: r.error ?? null, extractionRetried: r.extractionRetried ?? [],
+      parallel: r.parallel === true, round: r.round === 2 ? 2 : 1, round2: r.round2 !== false, round2Vendors: Array.isArray(r.round2Vendors) ? r.round2Vendors : null, round2StartedAt: r.round2StartedAt ?? null,
+    };
   } catch {
     return null;
   }
@@ -243,12 +253,16 @@ export type VendorProgress = {
   callStatus: Call["status"] | null;
   source: Call["source"] | null;
   error: string | null; // call error, or the "no recording" explanation
+  round: 1 | 2 | null; // parallel runs: 2 once this vendor's callback (round 2) call exists
   quote: { tiers: Quote["tiers"]; perAccountFeeCents: number; conditions: string[]; allInPerSeatCents: number | null } | null;
 };
 
 /** Run state as exposed over HTTP (no internal bookkeeping). */
 export type PublicRun = Omit<RunState, "extractionRetried">;
-const publicRun = (r: RunState): PublicRun => ({ running: r.running, mode: r.mode, order: r.order, startedAt: r.startedAt, finishedAt: r.finishedAt, error: r.error });
+const publicRun = (r: RunState): PublicRun => ({
+  running: r.running, mode: r.mode, order: r.order, startedAt: r.startedAt, finishedAt: r.finishedAt, error: r.error,
+  parallel: r.parallel, round: r.round, round2: r.round2, round2Vendors: r.round2Vendors, round2StartedAt: r.round2StartedAt,
+});
 
 /**
  * Response body of GET/POST/DELETE /api/pool/negotiate-all. The run fields are exposed BOTH at the top level
@@ -258,6 +272,7 @@ const publicRun = (r: RunState): PublicRun => ({ running: r.running, mode: r.mod
 export type RunView = Partial<PublicRun> & {
   running: boolean;
   order: string[];
+  parallelAvailable: boolean; // DIAL_PARALLEL_LANES has >= 2 valid lanes (POST { mode: 'live', parallel: true } will work)
   run: PublicRun | null; // null until a run was ever started
   progress: {
     total: number;
@@ -291,6 +306,7 @@ export function runView(): RunView {
       callId: last?.id ?? null,
       callStatus: last?.status ?? null,
       source: last?.source ?? null,
+      round: run?.parallel ? (run.round2StartedAt && last && last.startedAt >= run.round2StartedAt ? 2 : 1) : null,
       error: state === "no_recording" ? `No recorded call for ${v?.name ?? id}; nothing was fabricated. Run in live mode to get a real quote.` : (last?.error ?? null),
       quote: q ? { tiers: q.tiers, perAccountFeeCents: q.perAccountFeeCents, conditions: q.conditions, allInPerSeatCents: effectiveAllIn(q, members, now())?.allInPerSeatCents ?? null } : null,
     };
@@ -299,6 +315,7 @@ export function runView(): RunView {
   const pub = run ? publicRun(run) : null;
   return {
     ...(pub ?? { running: false }),
+    parallelAvailable: parallelAvailable(),
     order,
     run: pub,
     progress: {
@@ -329,6 +346,8 @@ async function tick(): Promise<void> {
       if (!run?.running) return;
     }
   }
+
+  if (run.parallel) return tickParallel(run);
 
   const calls = all("calls");
   if (calls.some((c) => !isDone(c))) return; // strictly sequential: wait for the in-flight call
@@ -369,14 +388,23 @@ export async function tickRunner(): Promise<void> {
 }
 
 /** POST /api/pool/negotiate-all. Validates up front (no side effects on failure), persists the run, takes the first step. */
-export async function startRun(mode: NegotiateMode): Promise<NegotiateResult> {
+export async function startRun(mode: NegotiateMode, opts: { parallel?: boolean; round2?: boolean } = {}): Promise<NegotiateResult> {
+  const parallel = opts.parallel === true;
+  if (parallel) {
+    // Validate the parallel config up front: no side effects on failure.
+    if (mode !== "live") return reply(400, { error: "Parallel mode is live only. To see recordings side by side use \"Play recorded calls side by side\" on /negotiation." });
+    const parsed = parseParallelLanes();
+    if (parsed.error) return reply(400, { error: parsed.error });
+    if (parsed.lanes.length < 2) return reply(400, { error: PARALLEL_NEEDS_LANES_ERROR });
+    if (!process.env.DIAL_API_KEY?.trim()) return reply(400, { error: "Parallel mode is not configured: set DIAL_API_KEY in .env.local." });
+  }
   const existing = readRun();
   if (existing?.running) {
-    if (existing.mode !== mode) return reply(409, { error: `A ${existing.mode} run is already in progress; wait for it to finish or DELETE /api/pool/negotiate-all first.`, ...runView() });
+    if (existing.mode !== mode || existing.parallel !== parallel) return reply(409, { error: `A ${existing.mode} run is already in progress; wait for it to finish or DELETE /api/pool/negotiate-all first.`, ...runView() });
     await tickRunner();
     return reply(200, { alreadyRunning: true, ...runView() });
   }
-  if (mode === "live") {
+  if (mode === "live" && !parallel) {
     const cfg = liveConfigError(NEGOTIATION_ORDER);
     if (cfg) return reply(400, { error: cfg });
   }
@@ -384,9 +412,140 @@ export async function startRun(mode: NegotiateMode): Promise<NegotiateResult> {
   if (pool.status === "settled") return reply(409, { error: "Pool is already settled; reset the demo to negotiate again." });
   if (pool.memberOrderIds.length === 0) return reply(400, { error: "No pooled orders yet; nothing to negotiate." });
 
-  writeRun({ running: true, mode, order: [...NEGOTIATION_ORDER], startedAt: new Date().toISOString(), finishedAt: null, error: null, extractionRetried: [] });
+  const order = parallel ? parallelLanes().map((l) => l.vendorId) : [...NEGOTIATION_ORDER];
+  writeRun({ running: true, mode, order, startedAt: new Date().toISOString(), finishedAt: null, error: null, extractionRetried: [], parallel, round: 1, round2: opts.round2 !== false, round2Vendors: null, round2StartedAt: null });
   await tickRunner();
   return reply(200, { started: true, ...runView() });
+}
+
+// ---------------------------------------------------------------------------------------------
+// Parallel live mode. Round 1: every configured lane dials its vendor at the same time (each lane has its own vendor
+// number + caller number). Round 2 (optional): call back the top 2 vendors by effective all-in price, citing the best
+// competing offer (lib/dial/prompt.ts cites it truthfully from the extracted quotes).
+
+const ROUND1_NOTE =
+  "CONTEXT FOR THIS CALL: want-it is collecting offers from several vendors today. No competing quote is available yet, so do not state, claim, or imply any specific competing price.";
+const ROUND2_NOTE =
+  "CONTEXT FOR THIS CALL: this is a callback. You already spoke with this vendor earlier today and are now asking whether it can improve on its own earlier offer, citing only the facts above.";
+
+/** Pool -> negotiating and member orders -> negotiating (idempotent). Returns an error reply, or the pool + members. */
+function beginNegotiating(): { error: NegotiateResult } | { pool: Pool; members: Order[] } {
+  let pool = recomputePool();
+  if (pool.status === "settled") return { error: reply(409, { error: "Pool is already settled; reset the demo to negotiate again." }) };
+  const members = pool.memberOrderIds.map((id) => get("orders", id)).filter((o): o is Order => !!o);
+  if (members.length === 0) return { error: reply(400, { error: "No pooled orders yet; nothing to negotiate." }) };
+  pool = put("pools", { ...pool, status: "negotiating" });
+  const stamp = now().toISOString();
+  const negotiating = members.map((o) => (o.status === "held" || o.status === "pooled" ? put("orders", { ...o, status: "negotiating", poolId: pool.id, updatedAt: stamp }) : o));
+  return { pool, members: negotiating };
+}
+
+/** Place the calls of one parallel round, all lanes at the same time. Each lane: persona PATCH on its vendor number, then createCall from its caller number. */
+async function placeLaneCalls(lanes: LaneConfig[], round: 1 | 2): Promise<NegotiateResult[]> {
+  const begun = beginNegotiating();
+  if ("error" in begun) return lanes.map(() => begun.error);
+  const { pool, members } = begun;
+  let evidence;
+  try { evidence = await getDemandEvidence(pool.category); } catch { evidence = null; }
+  evidence ??= { source: "unavailable" as const, queryText: "", ranAt: null, interestedBuyers90d: null, abandonedOverPrice90d: null, medianMaxPricePerSeatCents: null, isSyntheticHistory: true, summary: "Keewano unavailable." };
+
+  const calls = all("calls");
+  const poolCallIds = new Set(calls.filter((c) => c.poolId === pool.id).map((c) => c.id));
+  const priorQuotes: Quote[] = round === 1 ? [] : all("quotes").filter((q) => poolCallIds.has(q.callId)); // round 1: nothing known yet, nothing cited
+  let nextSeq = calls.reduce((m, c) => Math.max(m, c.sequence), 0);
+
+  const tasks = lanes.map((lane) => {
+    const vendor = VENDORS.find((v) => v.id === lane.vendorId);
+    const slot = NEGOTIATION_ORDER.indexOf(lane.vendorId) + 1;
+    const slotTaken = calls.some((c) => c.sequence === slot && !(c.vendorId === lane.vendorId && noTranscriptFailure(c)));
+    const sequence = round === 1 && slot > 0 && !slotTaken ? slot : ++nextSeq;
+    return { lane, vendor, sequence };
+  });
+
+  return Promise.all(
+    tasks.map(async ({ lane, vendor, sequence }): Promise<NegotiateResult> => {
+      if (!vendor) return reply(404, { error: `Unknown vendor "${lane.vendorId}".` });
+      const callId = newId("call");
+      const instruction = `${buildInstruction({ vendor, pool, members, evidence, priorQuotes, now: now() })}\n\n${round === 1 ? ROUND1_NOTE : ROUND2_NOTE}`;
+      const header = `[want-it note] vendor_mode=ai: a Dial AI agent answered as ${vendor.name} (test vendor persona applied to the vendor number). Parallel run, round ${round}.`;
+      const base: Call = { id: callId, poolId: pool.id, vendorId: vendor.id, sequence, dialCallId: null, status: "queued", source: "live", recordedAt: null, instruction: `${header}\n\n${instruction}`, transcriptTurns: [], error: null, startedAt: new Date().toISOString(), endedAt: null };
+      const failed = (error: string) => put("calls", { ...base, status: "failed", error, endedAt: new Date().toISOString() });
+
+      const persona = personaFor(vendor.id);
+      if (!persona) return reply(500, { call: failed(`No vendor persona defined for ${vendor.name}`), error: `No vendor persona defined for ${vendor.name}` });
+      const patched = await updateNumber(lane.vendorNumberId, { inboundInstruction: persona.instruction() });
+      if (!patched.ok) {
+        const msg = `Could not set the ${vendor.name} persona on its vendor number: ${patched.error}. No call was placed.`;
+        return reply(502, { error: msg, call: failed(msg) });
+      }
+      const created = await createCall({ to: lane.vendorPhone, fromNumber: lane.callerNumberId, instruction, idempotencyKey: callId });
+      if (!created.ok) {
+        const msg = `Dial could not place the call: ${created.error}`;
+        return reply(502, { error: msg, call: failed(msg) });
+      }
+      const call = put("calls", { ...base, dialCallId: created.data.dialCallId, status: created.data.status === "failed" ? "failed" : "queued", error: created.data.error });
+      return reply(201, call);
+    }),
+  );
+}
+
+/** Stop the run when a pool/config problem (400/404/409) hit every lane: nothing more would succeed. */
+function configProblem(results: NegotiateResult[]): string | null {
+  const bad = results.filter((r) => r.status === 400 || r.status === 404 || r.status === 409);
+  return bad.length === results.length && bad.length > 0 ? (typeof bad[0].body.error === "string" ? bad[0].body.error : `Runner stopped (HTTP ${bad[0].status})`) : null;
+}
+
+async function tickParallel(run: RunState): Promise<void> {
+  const lanes = parallelLanes().filter((l) => run.order.includes(l.vendorId));
+  if (lanes.length < 2) {
+    writeRun({ ...run, running: false, finishedAt: new Date().toISOString(), error: PARALLEL_NEEDS_LANES_ERROR });
+    return;
+  }
+  const laneIds = new Set(lanes.map((l) => l.vendorId));
+  const calls = all("calls");
+  if (calls.some((c) => laneIds.has(c.vendorId) && !isDone(c))) return; // lines are still busy: wait for every lane to finish the round
+
+  // ---- Round 1: every lane without a quote/call yet dials NOW, all at once (a failed attempt is retried once after a backoff).
+  if (run.round === 1) {
+    const quoted = new Set(all("quotes").map((q) => q.callId));
+    const pending = lanes.filter((l) => classifyVendor(l.vendorId, calls, quoted, { maxAttempts: MAX_ATTEMPTS, since: run.startedAt, mode: "live" }) === "pending");
+    if (pending.length > 0) {
+      const ready = pending.filter((l) => {
+        const lastFail = calls.filter((c) => c.vendorId === l.vendorId && noTranscriptFailure(c)).sort((a, b) => (a.endedAt ?? "").localeCompare(b.endedAt ?? "")).at(-1);
+        return !(lastFail?.endedAt && Date.now() - new Date(lastFail.endedAt).getTime() < RETRY_BACKOFF_MS);
+      });
+      if (ready.length === 0) return; // all backing off
+      const results = await placeLaneCalls(ready, 1);
+      const stop = configProblem(results);
+      if (stop) writeRun({ ...run, running: false, finishedAt: new Date().toISOString(), error: stop });
+      return;
+    }
+    // Round 1 is over (every lane is terminal). Decide round 2: top 2 by effective all-in price.
+    const pool: Pool | null = get("pools", POOL_ID);
+    const members = pool ? pool.memberOrderIds.map((id) => get("orders", id)).filter((o): o is Order => !!o) : [];
+    const poolCallIds = new Set(calls.filter((c) => !pool || c.poolId === pool.id).map((c) => c.id));
+    const best = new Map<string, number>();
+    for (const q of all("quotes")) {
+      if (!poolCallIds.has(q.callId) || !laneIds.has(q.vendorId)) continue;
+      const e = effectiveAllIn(q, members, now());
+      if (e && (!best.has(q.vendorId) || e.allInPerSeatCents < best.get(q.vendorId)!)) best.set(q.vendorId, e.allInPerSeatCents);
+    }
+    const top2 = [...best.entries()].sort((a, b) => a[1] - b[1]).slice(0, 2).map(([id]) => id);
+    if (!run.round2 || top2.length < 2) {
+      writeRun({ ...run, running: false, finishedAt: new Date().toISOString(), round2Vendors: [] });
+      return;
+    }
+    const started = new Date().toISOString();
+    const next: RunState = { ...run, round: 2, round2Vendors: top2, round2StartedAt: started };
+    writeRun(next);
+    const results = await placeLaneCalls(lanes.filter((l) => top2.includes(l.vendorId)), 2);
+    const stop = configProblem(results);
+    if (stop) writeRun({ ...next, running: false, finishedAt: new Date().toISOString(), error: stop });
+    return;
+  }
+
+  // ---- Round 2: callbacks placed; nothing in flight any more, so the run is done.
+  writeRun({ ...run, running: false, finishedAt: new Date().toISOString() });
 }
 
 /** DELETE /api/pool/negotiate-all: stop starting new calls. A call already in flight is left to finish (Dial calls cannot be canceled here). */

@@ -324,5 +324,128 @@
       }
     ],
     "sequence": 3
+  },
+  {
+    "vendorId": "auditly",
+    "recordedAt": "2026-10-11T22:41:14.456Z",
+    "dialCallId": "cmv4emk6w01f30foxm5dulqmn",
+    "instruction": "[want-it note] vendor_mode=ai: a Dial AI agent answered as Auditly (test vendor persona applied to the vendor number). Round 4.\n\nYou are the procurement agent for want-it, a marketplace that pools startup demand to negotiate group prices on software. You are making an outbound phone call to Auditly sales about SOC 2 compliance software seats. You are an AI agent and you must say so.\n\nOPENING: The sales contact is a stranger who knows nothing about want-it, so give the context they need, briefly and naturally, in your first turn or two. Say who you are (an AI agent calling on behalf of want-it), what want-it is in one sentence (a buying group that pools startups who each want the same software), and the concrete ask: group pricing on SOC 2 compliance software seats for 11 startups, 86 seats in total, where each company gets and pays for its own account. Then STOP and let the contact respond and ask their questions. The contact may be a human or an AI sales agent; run the same call either way. If the person cannot discuss pricing, ask politely for the right person. If you reach voicemail or an automated phone menu (not a conversational sales contact), end the call without leaving any figures.\n\nFACTS you may state (these are the ONLY facts you may state):\n- want-it has 11 startups that each want SOC 2 compliance software seats from you, 86 seats in total.\n- The group buying window closes Wednesday, October 14 at 3:28 PM PDT (about 72 hours from now).\n- All 11 startups have a payment-card authorization hold in place (holds totaling about $2173). They are committed to buy if the price lands at or below their own maximum. If asked: these are authorization holds, not charges, and in this pilot the holds are simulated.\n- Each startup needs its OWN separate account with Auditly, and each company gets and pays for its own account. want-it does not resell the software and never holds or shares credentials; it only brokers the group price.\n- Auditly's list price is $28 per seat.\n- Price sensitivity of the pooled buyers: 1 startup (3 seats) will not buy above $18/seat; 2 startups (8 seats) will not buy above $20/seat; 3 startups (23 seats) will not buy above $22/seat; 4 startups (30 seats) will not buy above $23/seat; 5 startups (42 seats) will not buy above $24/seat; 6 startups (50 seats) will not buy above $25/seat; 8 startups (60 seats) will not buy above $26/seat. Separately, 3 startups (26 seats) stated no cap beyond list price.\n- Our demand data shows 61 startups looked for SOC 2 compliance software in the last 90 days and 21 of them abandoned at checkout over price. The median maximum price those buyers state is about $22/seat. Demand that walks away at list price is business that is not being won today, so a group deal at a lower price would be incremental. If asked where this data comes from: it is want-it's demand tracker, and the history is simulated for this pilot.\n- Our best offer so far is $22/seat all-in from Certly. (Detail, only if asked: on an earlier call Certly told us $22/seat at 1+ seats; at our pool size that is $22/seat, with no per-account fee, which averages $22/seat all-in. Its stated conditions: group cohort rate for this buying window; each company signs and pays directly on its own account. Valid until Wed, 14 Oct 2026 22:28:00 GMT.) After Auditly states its own first price, say exactly: \"Our best offer so far is $22/seat all-in from Certly. Can you beat it?\" Do not claim any other competing offer.\n\nYOUR GOAL: get the vendor to state, clearly and out loud:\n1. The per-seat price by seat-count tier. Ask what the best per-seat price is at our total of 86 seats, and whether better pricing exists at higher volumes.\n2. Whether there is any per-account fee (setup, admin, or onboarding) per buyer.\n3. Confirmation that each startup gets its own separate account at the group price.\n4. How long the offer is valid (expiry date) and any conditions (first-year-only discount, annual prepay, minimum commitment term, minimums).\n\nHOW TO NEGOTIATE: Be friendly, direct, and brief. After your opening, wait for the contact to respond before giving any numbers, and answer their questions honestly using only the FACTS above (for example how many seats, how billing and accounts work, the timeline). Then ask for tiered pricing. Do not dump the price-sensitivity or demand data up front: share the buyers' price sensitivity and the demand evidence only when the contact pushes back on price, then ask what would close the gap (for example a first-year discount). Push back once or twice at most. You cannot sign or commit anyone: the buyers decide, and each buys only if the final price is at or below their own maximum.\n\nHARD RULES:\n- Never invent numbers, statistics, buyer names, competitor offers, or deadlines. State only the FACTS above. If you do not know something, say you do not have that figure.\n- Never claim an offer or quote that the vendor did not state on this call, other than the earlier-call quotes listed in the FACTS.\n- Keep every turn short and conversational; ask one question at a time. Keep the whole call under about 3 minutes (it is hard-capped at 3 minutes) and aim to finish within 2.5.\n- Before you finish, repeat the final terms back and ask the vendor to confirm: each tier price, any per-account fee (or none), separate accounts, expiry, and conditions. If the vendor gave no discount, say so back too.\n- Then thank them and end the call.",
+    "transcriptTurns": [
+      {
+        "speaker": "user",
+        "text": "Thanks for calling Auditly. This is Sam. How can I help?",
+        "startMs": 884
+      },
+      {
+        "speaker": "agent",
+        "text": "Hi Sam, thanks for picking up. I’m an AI agent calling on behalf of want-it, a buying group that pools startups who all want the same software to negotiate group pricing.\n\nRight now we have 11 startups that each want SOC 2 compliance software seats from Auditly, 86 seats in total. Each company needs its own separate Auditly account and will pay you directly; we’re just brokering a group rate.\n\nCould you help with pricing for this, or is there someone else on your team who owns SOC 2 pricing and discounts?",
+        "startMs": 4697
+      },
+      {
+        "speaker": "user",
+        "text": "I can help with s o c two pricing.",
+        "startMs": 33134
+      },
+      {
+        "speaker": "user",
+        "text": "That's my lane.",
+        "startMs": 35294
+      },
+      {
+        "speaker": "user",
+        "text": "Thanks for the context. A few quick details so I can frame this right. Roughly, how many seats per start up on average?",
+        "startMs": 36244
+      },
+      {
+        "speaker": "user",
+        "text": "And do you have a target timeline for when these eleven companies would wanna sign and go live?",
+        "startMs": 42944
+      },
+      {
+        "speaker": "agent",
+        "text": "Great, thanks Sam.\n\nOn average it’s small teams: roughly 5–10 seats per startup, with a couple smaller and a couple a bit larger, adding up to 86 total.\n\nOn timing, the group buying window closes this Wednesday, October 14 at 3:28 PM Pacific. So anyone who moves forward would be aiming to sign and kick off before then, or at least lock in pricing by that deadline.\n\nGiven that, what kind of per-seat pricing could you do at 86 seats, and are there any per-account setup or onboarding fees we should factor in?",
+        "startMs": 47949
+      },
+      {
+        "speaker": "user",
+        "text": "Got it. That helps. Our standard is twenty eight dollars per seat, plus a one hundred and fifty dollars onetime onboarding fee per company account. Given eighty six seats across eleven start ups, each with its own account and paying you I can do a group rate of sixteen dollars per seat for all of them. Plus one hundred and fifty dollars per account for onboarding. Each start up would get its own separate Auditly account. Sign its own order form at dollar sixteen slash seat, Pay its own one hundred and fifty dollars one time onboarding fee. I can hold that pricing for ten days from today, so through October twenty first. It sounds like your internal window is shorter, which is fine as long as they sign within that period. Does that structure work for you in the group?",
+        "startMs": 79924
+      },
+      {
+        "speaker": "agent",
+        "text": "Thanks, that’s very clear, Sam.\n\nOne thing I should share: our best offer so far is $22/seat all‑in from Certly. Can you beat that—either by reducing or waiving the $150 per‑account fee, or by improving",
+        "startMs": 124551
+      },
+      {
+        "speaker": "agent",
+        "text": "Understood on timing.\n\nGiven we’re tight on time, let me just repeat what I heard and you can confirm or correct me:\n\n- Price: $16 per seat  \n- Onboarding: $150 one‑time per company/account  \n- Each of the 11 startups gets its own separate Auditly account, signs its own order form, and pays you directly  \n- This group rate is valid for 10 days from today, through October 21st  \n\nIs all of that accurate, and are there any other conditions, like annual prepay or minimum term?",
+        "startMs": 141093
+      },
+      {
+        "speaker": "user",
+        "text": "Almost all accurate. With two clarifications. One, I can't waive or cut the one hundred and fifty dollars per account onboarding fee. That's fixed.",
+        "startMs": 171354
+      }
+    ],
+    "sequence": 4
+  },
+  {
+    "vendorId": "complykit",
+    "recordedAt": "2026-10-11T22:44:23.850Z",
+    "dialCallId": "cmv4eqmbu01g60fqqp9xpdnjj",
+    "instruction": "[want-it note] vendor_mode=ai: a Dial AI agent answered as ComplyKit (test vendor persona applied to the vendor number). Round 5.\n\nYou are the procurement agent for want-it, a marketplace that pools startup demand to negotiate group prices on software. You are making an outbound phone call to ComplyKit sales about SOC 2 compliance software seats. You are an AI agent and you must say so.\n\nOPENING: The sales contact is a stranger who knows nothing about want-it, so give the context they need, briefly and naturally, in your first turn or two. Say who you are (an AI agent calling on behalf of want-it), what want-it is in one sentence (a buying group that pools startups who each want the same software), and the concrete ask: group pricing on SOC 2 compliance software seats for 11 startups, 86 seats in total, where each company gets and pays for its own account. Then STOP and let the contact respond and ask their questions. The contact may be a human or an AI sales agent; run the same call either way. If the person cannot discuss pricing, ask politely for the right person. If you reach voicemail or an automated phone menu (not a conversational sales contact), end the call without leaving any figures.\n\nFACTS you may state (these are the ONLY facts you may state):\n- want-it has 11 startups that each want SOC 2 compliance software seats from you, 86 seats in total.\n- The group buying window closes Wednesday, October 14 at 3:28 PM PDT (about 72 hours from now).\n- All 11 startups have a payment-card authorization hold in place (holds totaling about $2173). They are committed to buy if the price lands at or below their own maximum. If asked: these are authorization holds, not charges, and in this pilot the holds are simulated.\n- Each startup needs its OWN separate account with ComplyKit, and each company gets and pays for its own account. want-it does not resell the software and never holds or shares credentials; it only brokers the group price.\n- ComplyKit's list price is $31 per seat.\n- Price sensitivity of the pooled buyers: 1 startup (3 seats) will not buy above $18/seat; 2 startups (8 seats) will not buy above $20/seat; 3 startups (23 seats) will not buy above $22/seat; 4 startups (30 seats) will not buy above $23/seat; 5 startups (42 seats) will not buy above $24/seat; 6 startups (50 seats) will not buy above $25/seat; 8 startups (60 seats) will not buy above $26/seat. Separately, 3 startups (26 seats) stated no cap beyond list price.\n- Our demand data shows 61 startups looked for SOC 2 compliance software in the last 90 days and 21 of them abandoned at checkout over price. The median maximum price those buyers state is about $22/seat. Demand that walks away at list price is business that is not being won today, so a group deal at a lower price would be incremental. If asked where this data comes from: it is want-it's demand tracker, and the history is simulated for this pilot.\n- Our best offer so far is $22/seat all-in from Certly. (Detail, only if asked: on an earlier call Certly told us $22/seat at 1+ seats; at our pool size that is $22/seat, with no per-account fee, which averages $22/seat all-in. Its stated conditions: group cohort rate for this buying window; each company signs and pays directly on its own account. Valid until Wed, 14 Oct 2026 22:28:00 GMT.) After ComplyKit states its own first price, say exactly: \"Our best offer so far is $22/seat all-in from Certly. Can you beat it?\" Do not claim any other competing offer.\n\nYOUR GOAL: get the vendor to state, clearly and out loud:\n1. The per-seat price by seat-count tier. Ask what the best per-seat price is at our total of 86 seats, and whether better pricing exists at higher volumes.\n2. Whether there is any per-account fee (setup, admin, or onboarding) per buyer.\n3. Confirmation that each startup gets its own separate account at the group price.\n4. How long the offer is valid (expiry date) and any conditions (first-year-only discount, annual prepay, minimum commitment term, minimums).\n\nHOW TO NEGOTIATE: Be friendly, direct, and brief. After your opening, wait for the contact to respond before giving any numbers, and answer their questions honestly using only the FACTS above (for example how many seats, how billing and accounts work, the timeline). Then ask for tiered pricing. Do not dump the price-sensitivity or demand data up front: share the buyers' price sensitivity and the demand evidence only when the contact pushes back on price, then ask what would close the gap (for example a first-year discount). Push back once or twice at most. You cannot sign or commit anyone: the buyers decide, and each buys only if the final price is at or below their own maximum.\n\nHARD RULES:\n- Never invent numbers, statistics, buyer names, competitor offers, or deadlines. State only the FACTS above. If you do not know something, say you do not have that figure.\n- Never claim an offer or quote that the vendor did not state on this call, other than the earlier-call quotes listed in the FACTS.\n- Keep every turn short and conversational; ask one question at a time. Keep the whole call under about 3 minutes (it is hard-capped at 3 minutes) and aim to finish within 2.5.\n- Before you finish, repeat the final terms back and ask the vendor to confirm: each tier price, any per-account fee (or none), separate accounts, expiry, and conditions. If the vendor gave no discount, say so back too.\n- Then thank them and end the call.",
+    "transcriptTurns": [
+      {
+        "speaker": "user",
+        "text": "Thanks for calling ComplyKit. This is Jordan. How can I help today?",
+        "startMs": 598
+      },
+      {
+        "speaker": "agent",
+        "text": "Hi Jordan, thanks for taking the call. I’m an AI agent calling on behalf of want-it, a buying group that pools startups who each want the same software to get group pricing.\n\nRight now we have 11 startups that each want their own ComplyKit account for SOC 2 compliance, 86 seats total. Each company would sign up and pay for its own separate account; we’re just brokering the group price.\n\nCould you help with pricing for a cohort like that, or is there someone else on your team who handles group or volume pricing?",
+        "startMs": 4846
+      },
+      {
+        "speaker": "user",
+        "text": "I can help with that. No need to loop anyone else in.",
+        "startMs": 32528
+      },
+      {
+        "speaker": "user",
+        "text": "Thanks for the detail. That's really clear. So just to confirm, eleven separate start ups, eighty six total seats across them. Each company gets its own CompliKit account, signs its own order, and pays its own bill. Is that all correct?",
+        "startMs": 35758
+      },
+      {
+        "speaker": "user",
+        "text": "Also, what start date are you targeting for this cohort? And do you already have any competing quotes per seat you're trying to beat, or are you looking for our best stand alone number?",
+        "startMs": 50208
+      },
+      {
+        "speaker": "agent",
+        "text": "Yes, that’s all correct: eleven separate startups, eighty‑six seats total, each with its own ComplyKit account, its own contract, and its own billing.\n\nOn timing, the buying window closes this Wednesday, October 14th, at 3:28 PM Pacific, and they would like to start as soon as possible after that.\n\nWe do have one competing quote we’re trying to beat, but before I get into that, what’s your best per‑seat price at 86 seats, and do you have better pricing at higher volumes?",
+        "startMs": 60144
+      },
+      {
+        "speaker": "user",
+        "text": "At list were thirty one dollars per seat with no per account fee. At your volume, eighty six seats. I can do twenty dollars per seat across the cohort, again, with no per account fee, twelve month commitment for each start up, each with its own account and contract. That's already our strong volume rate for fifty plus seats. If you're asking about even higher volumes in this cohort, yes. We can look at sharper pricing as total seats go up, but it depends on the number you're targeting and term length. You mentioned a competing quote you're trying to beat. What all in per seat number are you seeing from them?",
+        "startMs": 91528
+      },
+      {
+        "speaker": "agent",
+        "text": "Thanks, that’s helpful.\n\nOur best offer so far is $22 per seat all‑in from Certly. Can you beat it?",
+        "startMs": 128751
+      },
+      {
+        "speaker": "user",
+        "text": "Yes. I can beat that. Given your eighty six seats, I",
+        "startMs": 136608
+      },
+      {
+        "speaker": "user",
+        "text": "can do twenty one dollars per seat, all in, for each start up's own CompliKit account, each with its own twelve month contract and its own billing. Let me summarize final terms for you. Price. Twenty one dollars per seat. Volume, applies to this eighty six seat cohort across the eleven start ups. Per account fee, none. The per seat price is all in. Accounts slash contracts. Each start up gets its own separate CompliKit account and its own order form signed and billed separately. Commitment, twelve month term required for this pricing. Offer validity, Good for seven days from today, so through next Sunday. Does that match what you need",
+        "startMs": 140468
+      }
+    ],
+    "sequence": 5
   }
 ]

@@ -21,7 +21,7 @@ const STATUS: Record<LaneStatus, { label: string; tone: "neutral" | "accent" | "
 
 const RECENT_TURNS = 6;
 
-function isAgent(speaker: string): boolean {
+export function isAgent(speaker: string): boolean {
   return /agent|assistant|\bai\b|bot|dial|want-?it/i.test(speaker);
 }
 
@@ -32,6 +32,10 @@ export default function VendorLane({
   mode,
   active,
   runningHint,
+  lineNumber,
+  elapsedMs,
+  playback = false,
+  winner = false,
 }: {
   lane: Lane;
   facts: PoolFacts;
@@ -40,11 +44,37 @@ export default function VendorLane({
   active: boolean;
   /** Shown while waiting during a run, e.g. "Next up". */
   runningHint: string | null;
+  /** Phone line number shown in the lane header (1-based). */
+  lineNumber: number;
+  /** Call timer override (recorded playback clock). Otherwise derived from the live call. */
+  elapsedMs?: number | null;
+  /** Recorded-call playback: the lane shows a replay of a real finished call. */
+  playback?: boolean;
+  /** Highlight as the best deal. */
+  winner?: boolean;
 }) {
   const { vendor, call, quote, status } = lane;
   const st = STATUS[status];
   const [expanded, setExpanded] = useState(false);
   const turns = call?.transcriptTurns ?? [];
+  // Live call timer: ticks once a second while this lane's call is active.
+  const [tickNow, setTickNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!active || elapsedMs != null) return;
+    const id = setInterval(() => setTickNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [active, elapsedMs]);
+  const lastTurnMs = turns.reduce((m, t) => Math.max(m, t.startMs), 0);
+  const elapsed =
+    elapsedMs != null
+      ? elapsedMs
+      : !call
+        ? null
+        : active
+          ? Math.max(0, tickNow - new Date(call.startedAt).getTime())
+          : call.source === "live" && call.endedAt
+            ? Math.max(0, new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime())
+            : lastTurnMs || null;
   const shown = expanded ? turns : turns.slice(-RECENT_TURNS);
   const offset = turns.length - shown.length;
 
@@ -73,10 +103,20 @@ export default function VendorLane({
     <article
       aria-label={`${vendor.name} negotiation`}
       className={`flex min-w-0 flex-col rounded-xl border bg-surface transition-colors ${
-        active ? "border-warn/50" : status === "extracted" ? "border-accent/30" : "border-line"
+        winner ? "border-accent ring-2 ring-accent/40" : active ? "border-warn/50" : status === "extracted" ? "border-accent/30" : "border-line"
       }`}
     >
-      <header className="px-3.5 pb-3 pt-3.5">
+      <header className="px-3.5 pb-3 pt-3">
+        <div className="mb-2 flex items-center justify-between gap-2 border-b border-line pb-2">
+          <span className="inline-flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-wide text-muted">
+            <span aria-hidden className={`inline-block h-2 w-2 rounded-full ${active ? "animate-pulse bg-danger" : "bg-line"}`} />
+            Line {lineNumber}
+            <span className={active ? "text-danger" : "text-faint"}>{active ? (playback ? "On call · replay" : "On call") : call ? "Call ended" : "Idle"}</span>
+          </span>
+          <span className="tabular text-xs font-medium text-ink" aria-label="Call timer">
+            {elapsed != null ? fmtMmSs(elapsed) : "0:00"}
+          </span>
+        </div>
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <h3 className="truncate text-[15px] font-semibold leading-tight tracking-tight">{vendor.name}</h3>
@@ -100,6 +140,7 @@ export default function VendorLane({
         </div>
         <p className="tabular mt-2 h-[18px] truncate text-[12px] leading-[18px] text-muted">
           {call &&
+            !playback &&
             (lane.bestBefore != null ? (
               <>
                 Best offer in hand: <span className="font-medium text-ink">{usdSeat(lane.bestBefore)}</span>
@@ -125,7 +166,7 @@ export default function VendorLane({
                   ? "Dialing. Turns appear here as the call is transcribed."
                   : status === "transcribing"
                     ? "Call ended. Waiting for the transcript."
-                    : runningHint ?? "Not called yet. The agent calls vendors one at a time.")}
+                    : runningHint ?? (playback ? "Line open. Turns appear as the recorded call plays." : "Not called yet."))}
             </p>
           ) : (
             shown.map((t, i) => {

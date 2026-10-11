@@ -1,0 +1,22 @@
+/* Stage layout (docs/design/Main.dc.html): live dot, rail nodes, streaming turns, waveform, price flip. */
+.stage-root { font-family: var(--font-geist-sans), Geist, system-ui, sans-serif; color: #12171c; }
+.stage-mono { font-family: var(--font-geist-mono), "Geist Mono", ui-monospace, monospace; }
+.tnum { font-variant-numeric: tabular-nums; }
+@keyframes wi-pulse { 0% { box-shadow: 0 0 0 0 rgba(5,150,105,.55); } 100% { box-shadow: 0 0 0 10px rgba(5,150,105,0); } }
+.live-dot { animation: wi-pulse 1.6s cubic-bezier(.2,.8,.2,1) infinite; }
+@keyframes wi-ring { 0% { box-shadow: 0 0 0 0 rgba(161,98,7,.45); } 100% { box-shadow: 0 0 0 12px rgba(161,98,7,0); } }
+.node--calling .node-dot { animation: wi-ring 1.6s ease-out infinite; }
+@keyframes wi-turn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.turn--new { animation: wi-turn .32s cubic-bezier(.2,.8,.2,1) 1; }
+@keyframes wi-bar { 0%, 100% { transform: scaleY(.35); } 50% { transform: scaleY(1); } }
+.wave span { display: inline-block; width: 3px; height: 14px; border-radius: 2px; background: #059669; transform-origin: 50% 100%; animation: wi-bar .9s ease-in-out infinite; }
+.wave span:nth-child(2) { animation-delay: .12s; }
+.wave span:nth-child(3) { animation-delay: .24s; }
+.wave span:nth-child(4) { animation-delay: .36s; }
+@keyframes wi-flip { 0% { transform: translateY(10px); opacity: 0; color: #047857; } 60% { transform: translateY(0); opacity: 1; } 100% { color: #12171c; } }
+.price--new { animation: wi-flip .6s cubic-bezier(.2,.8,.2,1) 1; }
+.rail-fill { transition: width .55s cubic-bezier(.22,1,.36,1); }
+@media (prefers-reduced-motion: reduce) {
+  .live-dot, .node--calling .node-dot, .turn--new, .wave span, .price--new { animation: none; }
+  .rail-fill { transition: none; }
+}

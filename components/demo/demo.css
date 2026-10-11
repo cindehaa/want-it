@@ -1,0 +1,91 @@
+/* Demo story: motion only marks real state changes (an order arrives, a check resolves, orders merge). */
+.dm-pop {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: dm-pop 0.42s cubic-bezier(0.2, 0.9, 0.3, 1.25) 1 both;
+}
+@keyframes dm-pop {
+  from {
+    transform: scale(0.15);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.dm-ring {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: dm-ring 1s ease-out 1 both;
+}
+@keyframes dm-ring {
+  from {
+    transform: scale(0.6);
+    opacity: 0.8;
+  }
+  to {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+.dm-dot {
+  transition:
+    fill 0.45s ease,
+    stroke 0.45s ease,
+    fill-opacity 0.45s ease;
+}
+.dm-line {
+  stroke-dasharray: var(--len);
+  stroke-dashoffset: var(--len);
+  animation: dm-draw 0.8s ease-out 1 forwards;
+}
+@keyframes dm-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.dm-fade {
+  animation: dm-fade 0.45s ease-out 1 both;
+}
+@keyframes dm-fade {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.dm-row-in {
+  animation: dm-row 0.3s ease-out 1 both;
+}
+@keyframes dm-row {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dm-pop,
+  .dm-ring,
+  .dm-line,
+  .dm-fade,
+  .dm-row-in {
+    animation: none;
+  }
+  .dm-line {
+    stroke-dashoffset: 0;
+  }
+  .dm-ring {
+    display: none;
+  }
+  .dm-dot {
+    transition: none;
+  }
+}
