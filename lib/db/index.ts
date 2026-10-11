@@ -5,7 +5,9 @@ import path from "node:path";
 import fs from "node:fs";
 import { Order, Pool, Call, Quote } from "@/lib/contracts";
 
-const DB_PATH = process.env.DB_PATH ?? path.join(process.cwd(), "data", "want-it.db");
+// On Vercel the deployment filesystem is read-only except /tmp (per-instance, resets on cold start).
+const DB_PATH =
+  process.env.DB_PATH ?? (process.env.VERCEL ? "/tmp/want-it.db" : path.join(process.cwd(), "data", "want-it.db"));
 
 type Tables = { orders: Order; pools: Pool; calls: Call; quotes: Quote };
 export type TableName = keyof Tables;
