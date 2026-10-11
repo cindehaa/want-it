@@ -10,6 +10,7 @@ test("live order context and typed payload share a stable buyer and idempotent b
   assert.deepEqual(first, demandBatch(input));
   assert.match(first.installId, /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/);
   assert.equal(first.events[0].data, "soc2_compliance");
+  assert.deepEqual(Object.keys(first.events[0]).sort(), ["data", "dataType", "eventTypeId", "timestamp"]);
   assert.equal(first.events[1].data, false);
   assert.equal(first.events.at(-1)?.data, 12);
   assert.equal(first.installId, demandBatch({ ...input, type: "order_canceled" }).installId);
