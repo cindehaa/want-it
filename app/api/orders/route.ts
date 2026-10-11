@@ -34,6 +34,9 @@ export async function POST(req: Request) {
   ensureSeeded(); // first touch of an empty DB loads the simulated startups
   const pool = getOrCreatePool();
   const t = now();
+  if (pool.status === "settled" || t.getTime() >= new Date(pool.windowClosesAt).getTime()) {
+    return NextResponse.json({ error: "This buying window has closed. Reset the demo before placing a new order." }, { status: 409 });
+  }
   const list = listPriceOrDefault(input.category, input.preferredVendorId);
   const order: Order = {
     id: newId("ord"),

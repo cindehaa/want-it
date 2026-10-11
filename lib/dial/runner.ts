@@ -230,6 +230,10 @@ function readRun(): RunState | null {
 }
 const writeRun = (r: RunState) => kvSet(RUN_KEY, JSON.stringify(r));
 
+export function negotiationInProgress(): boolean {
+  return !!g.__negotiateLock || !!readRun()?.running || all("calls").some((c) => !isDone(c));
+}
+
 export type VendorProgress = {
   vendorId: string;
   name: string;

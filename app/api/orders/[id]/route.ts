@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import type { Order } from "@/lib/contracts";
 import { all, get } from "@/lib/db";
 import { recomputePool } from "@/lib/pool";
-import { effectivePrice } from "@/lib/settle";
+import { settleOrders } from "@/lib/settle";
 import { listPriceOrDefault } from "@/lib/seed";
+import { now } from "@/lib/clock";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,15 +19,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const callIds = new Set(all("calls").filter((c) => c.poolId === pool.id).map((c) => c.id));
   const quotes = all("quotes").filter((q) => callIds.has(q.callId));
 
-  // Best quote this order could currently get (supplier-stated quotes only; never our own asking price).
-  let best: { price: number; vendorId: string } | null = null;
-  for (const q of quotes) {
-    if (q.separateAccountsConfirmed === false) continue;
-    if (order.preferredVendorId && q.vendorId !== order.preferredVendorId) continue;
-    const poolSeats = members.filter((m) => !m.preferredVendorId || m.preferredVendorId === q.vendorId).reduce((s, m) => s + m.seats, 0);
-    const p = effectivePrice(q, poolSeats, order);
-    if (p != null && (!best || p < best.price)) best = { price: p, vendorId: q.vendorId };
-  }
+  const decision = settleOrders(members, quotes, now()).find((s) => s.orderId === id);
+  const best = decision?.status === "deal_applied" ? { price: decision.pricePerSeatCents, vendorId: decision.vendorId } : null;
 
   const dealVendorId = order.redemptionLink?.match(/\/redeem\/([^/]+)\//)?.[1] ?? null;
   return NextResponse.json({
