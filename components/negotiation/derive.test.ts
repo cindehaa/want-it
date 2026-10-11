@@ -33,3 +33,35 @@ test("stopping a replay run does not invent missing recordings for uncalled vend
   const run = parseRun({ run: { running: false, mode: "replay", order: ["certly"], finishedAt: view.now, error: "Stopped by user" }, progress: { vendors: [{ vendorId: "certly", state: "pending" }] } });
   assert.equal(buildLanes(view, run)[0].status, "waiting");
 });
+
+test("the empty hosted room exposes all five completed recordings without inventing quotes", async () => {
+  const { withSavedRecordings } = await import("./recordings");
+  const { recordedPlayback } = await import("@/lib/dial/playback");
+  const recordings = (await import("@/data/recorded-calls.json")).default;
+  const view = buildFixture("open");
+  view.vendors = VENDORS;
+  view.calls = [];
+  view.quotes = [];
+  const result = withSavedRecordings(view, { calls: recordedPlayback(recordings) });
+  const lanes = buildLanes(result, null);
+  assert.equal(result.calls.length, 5);
+  assert.ok(lanes.every((lane) => lane.call?.audio.recordingUrl && lane.status === "extracted"));
+  assert.ok(lanes.every((lane) => !lane.eligible));
+  assert.equal(result.quotes.length, 0);
+  assert.equal(view.calls.length, 0);
+});
+
+test("a current vendor call takes priority over its saved recording", async () => {
+  const { withSavedRecordings } = await import("./recordings");
+  const { recordedPlayback } = await import("@/lib/dial/playback");
+  const recordings = (await import("@/data/recorded-calls.json")).default;
+  const view = buildFixture("quoted");
+  view.vendors = VENDORS;
+  const current = view.calls[0];
+  current.status = "in_progress";
+  view.calls = [current];
+  const result = withSavedRecordings(view, { calls: recordedPlayback(recordings) });
+  assert.equal(result.calls.find((call) => call.vendorId === current.vendorId), current);
+  assert.equal(result.calls.filter((call) => call.vendorId === current.vendorId).length, 1);
+  assert.equal(result.quotes, view.quotes);
+});
