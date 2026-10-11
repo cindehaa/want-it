@@ -36,6 +36,9 @@ test("synthetic history has 60 unique startups and exactly 35 percent price aban
 test("SQL results validate counts and preserve zero and nullable medians", () => {
   const evidence = evidenceFromRows({ rows: [{ interested_buyers: "60", abandoned_buyers: "21", synthetic_buyers: "60" }] }, { rows: [{ median_max_price: "2210.5" }] }, "actual SQL", "2026-10-11T20:00:00Z");
   assert.equal(evidence.source, "keewano_live");
+  const actualShape = evidenceFromRows({ columns: [{ name: "interested_buyers" }, { name: "abandoned_buyers" }, { name: "synthetic_buyers" }], rows: [[60, 21, 60]] }, { columns: [{ name: "median_max_price" }], rows: [[2200]] }, "SQL", "date");
+  assert.equal(actualShape.interestedBuyers90d, 60);
+  assert.equal(actualShape.medianMaxPricePerSeatCents, 2200);
   assert.equal(evidence.medianMaxPricePerSeatCents, 2211);
   assert.equal(evidence.isSyntheticHistory, true);
   assert.equal(evidence.queryText, "actual SQL");
