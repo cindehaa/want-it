@@ -128,3 +128,12 @@ The dashboard exposed the estimate label, unavailable evidence and negotiation c
 The production server explicitly disabled external keys during acceptance testing, so it placed no real calls and sent no live demand events.
 Full `pnpm lint` still reports five errors in the lead-owned acceptance script, at lines 71, 73, 81, 481 and 502.
 A complete live rehearsal has not been performed.
+
+The final production build and runtime verification used commit `f1f13bdaa54171319333ca6b581bc9baeb176ae5`.
+`GET /api/pool` returned the live 60/21/$21.90 evidence at `2026-10-11T21:52:56.769Z` and kept `hasEstimates: true` on the time comparison.
+Generating the procurement instructions from that actual API response included the 60 interested startups, 21 abandoning over price and simulated-history disclosure.
+No supplier call was placed by this verification.
+[PR 1](https://github.com/cindehaa/want-it/pull/1) contains the remaining fixes, benchmark and demo script.
+It is a mergeable draft; no remote CI checks or review comments are configured or present at handoff.
+The draft preserves the remaining full-lint and live-rehearsal gates.
+Temporary servers started for verification have been stopped.
