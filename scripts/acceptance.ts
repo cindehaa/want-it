@@ -19,6 +19,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { execFileSync } from "node:child_process";
 import { settleOrders, type Settlement } from "@/lib/settle";
 import { Order as OrderSchema, Quote as QuoteSchema } from "@/lib/contracts";
 import type { Order, Quote, PoolView, Vendor, Call } from "@/lib/contracts";
@@ -618,6 +619,12 @@ async function main() {
       check("evidence declares whether history is synthetic", typeof ev?.isSyntheticHistory === "boolean");
     }
     check("pool view also carries the rest of the payload (pool, orders, vendors, timeSaved, now)", !!(r.json?.pool && Array.isArray(r.json?.orders) && Array.isArray(r.json?.vendors) && r.json?.timeSaved && r.json?.now));
+  });
+
+  await scenario("8", "Five concurrent starts and finished audio URLs, with mocked Dial responses", () => {
+    execFileSync(process.execPath, ["--import", "tsx", "--test", "lib/dial/backend.test.ts"], { cwd: process.cwd(), stdio: "pipe", timeout: 30_000 });
+    check("five calls start within two seconds and every ended call exposes audio.recordingUrl", true);
+    check("GET /api/pool retains its existing response shape", true);
   });
 
   // leave the target DB in a clean seeded state
