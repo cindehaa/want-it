@@ -1,0 +1,11 @@
+{
+  "steps": [
+    { "id": "compare", "label": "Find & compare vendors", "baselineMinutesPerBuyer": 60, "ourMinutesPerBuyer": 0, "kind": "estimate", "note": "STUB — teammate replaces (T4)" },
+    { "id": "contact_sales", "label": "Contact sales & book a call", "baselineMinutesPerBuyer": 15, "ourMinutesPerBuyer": 0, "kind": "estimate", "note": "STUB" },
+    { "id": "sales_call", "label": "Sales call & quote", "baselineMinutesPerBuyer": 45, "ourMinutesPerBuyer": 0, "kind": "estimate", "note": "STUB" },
+    { "id": "negotiate", "label": "Negotiate & follow up", "baselineMinutesPerBuyer": 60, "ourMinutesPerBuyer": 0, "kind": "estimate", "note": "STUB" },
+    { "id": "checkout", "label": "Checkout", "baselineMinutesPerBuyer": 3, "ourMinutesPerBuyer": 1, "kind": "estimate", "note": "STUB" }
+  ],
+  "vendorSalesMinutesPerCustomer": 90,
+  "kindNote": "STUB — teammate replaces with observed/estimate values."
+}
