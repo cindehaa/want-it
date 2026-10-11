@@ -9,6 +9,7 @@ let directory: string;
 let store: typeof import("@/lib/db");
 before(async () => {
   directory = await mkdtemp(path.join(os.tmpdir(), "want-it-call-backend-"));
+  Reflect.set(process.env, "NODE_ENV", "test");
   process.env.DB_PATH = path.join(directory, "test.db");
   process.env.KEEWANO_PAT = "";
   process.env.KEEWANO_EVENT_KEY = "";
@@ -43,7 +44,7 @@ test("default live negotiate-all starts all five calls within two seconds", asyn
   assert.equal(new Set(calls.map((c) => c.sequence)).size, 5);
   const refresh = await import("@/lib/dial/refresh");
   const finished = await Promise.all(calls.map((call) => refresh.refreshCall(call.id, { force: true })));
-  assert.ok(finished.every((r) => r.call !== null && r.call.audio.recordingUrl === `/api/calls/${r.call.id}/audio`));
+  assert.ok(finished.every((r) => r.call !== null && r.call.audio.recordingUrl?.startsWith(`/api/calls/${r.call.id}/audio?`)));
   (await import("@/lib/dial/runner")).stopRun();
 });
 
@@ -54,7 +55,7 @@ test("finished calls expose a safe recording URL and preserve the pool response"
   store.put("calls", contracts.Call.parse({ id, poolId: "pool_soc2", vendorId: "certly", sequence: 1, dialCallId: "dial_audio", status: "queued", source: "live", recordedAt: null, instruction: "test", transcriptTurns: [], error: null, startedAt: stamp, endedAt: null }));
   t.mock.method(globalThis, "fetch", async (url: string) => String(url).includes("/calls?") ? json({ calls: [] }) : json({ call: { id: "dial_audio", status: { state: "Terminated", terminationType: "completed" }, recordingAvailable: true, createdAt: stamp, duration: 1 } }));
   const result = await (await import("@/lib/dial/refresh")).refreshCall(id, { force: true });
-  assert.equal(result.call?.audio.recordingUrl, `/api/calls/${id}/audio`);
+  assert.ok(result.call?.audio.recordingUrl?.startsWith(`/api/calls/${id}/audio?`));
   assert.equal(result.call?.audio.liveUrl, null);
   assert.equal(result.call?.audio.liveKind, null);
   assert.ok(!JSON.stringify(result.call?.audio).includes("backend-test-key"));

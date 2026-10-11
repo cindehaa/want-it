@@ -4,6 +4,7 @@ import { EMPTY_CALL_AUDIO } from "@/lib/contracts";
 import type { Call, Quote } from "@/lib/contracts";
 import { all, get, put } from "@/lib/db";
 import { getCall, vendorLegFor, type DialCallView } from "@/lib/dial/client";
+import { recordingLink, saveFinishedRecording } from "@/lib/dial/audio";
 import { extractQuote } from "@/lib/quote/extract";
 
 export type RefreshResult = { call: Call | null; quote: Quote | null; pollError?: string };
@@ -28,8 +29,7 @@ export const canRetryExtraction = (c: Call) => c.status === "failed" && c.transc
 function applyDial(call: Call, v: DialCallView): Call {
   const next: Call = { ...call, status: v.status, audio: { ...EMPTY_CALL_AUDIO } };
   if (["ended", "transcribed", "failed"].includes(v.status) && v.recordingAvailable === true) {
-    next.audio.recordingUrl = `/api/calls/${encodeURIComponent(call.id)}/audio`;
-    next.audio.expiresAt = null;
+    Object.assign(next.audio, recordingLink(call));
   }
   if (v.transcriptTurns && v.transcriptTurns.length > 0) {
     next.transcriptTurns = v.transcriptTurns.map((t) => ({ speaker: t.speaker, text: t.text, startMs: t.startMs }));
@@ -61,6 +61,7 @@ async function doRefresh(id: string, opts: { force?: boolean; retryExtraction?: 
         const next = applyDial(call, r.data);
         next.vendorDialCallId ??= await vendorLegFor(r.data);
         call = put("calls", next);
+        if (call.audio.recordingUrl) await saveFinishedRecording(call);
       } else {
         pollError = r.error;
         if (!r.retryable) call = fail(call, r.error); // 401/404/etc: will never succeed
