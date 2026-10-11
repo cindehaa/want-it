@@ -56,10 +56,12 @@ If it is unavailable, say "Demand evidence is unavailable, so the agent has no h
 ## 1:30 to 3:05, negotiation
 
 Select "Call next vendor" only after the lead confirms Dial is configured.
-Show the AI vendor's private pricing policy and the transcript as it arrives.
+Show the vendor's private pricing policy and the transcript as it arrives.
 Read an extracted quote only when the vendor has actually stated it.
 
-"Certly is a fictional test vendor, played by another AI agent on Dial.
+"Certly is a fictional test vendor.
+In AI mode, another agent plays its sales representative on Dial.
+In human mode, a teammate answers using the configured vendor policy.
 The procurement agent starts with our pool's facts and historical demand evidence.
 It does not receive the vendor's private price floor.
 We extract the supplier's stated terms from the transcript.
@@ -104,7 +106,10 @@ Stop by 4:35.
 ## Human-vendor fallback
 
 Use this only when the lead selects `VENDOR_MODE=human` and confirms the receiving phone number.
-Certly starts at $30 per seat, offers $24 at 10 seats or more and $20 at 25 seats or more, allows separate accounts and gives a seven-day expiry.
+Follow [the lead's vendor scripts](../WIP/VENDOR_SCRIPTS.md), which match `lib/dial/vendorPersonas.ts`.
+Do not use the older fixed $24/$20 fallback from the original brief; the current policy has different tiers and concessions.
+The lead selected human mode at 14:34 because the account currently has one Dial number.
+Confirm the current mode before recording.
 State only the policy the lead has configured for the call.
 Do not call a real vendor or submit a real sales request as part of this demo.
 

@@ -51,7 +51,9 @@ The second computes Keewano's estimated median over maximum-price event values, 
 The exact SQL is returned in `queryText`.
 If discovery reports a required project identifier, set `KEEWANO_PROJECT_ID` to the project UUID.
 If discovery reports another required argument, multiple SQL tools or non-JSON results, hand off the discovery output for an adapter update.
-Those details cannot be confirmed without the live PAT; the docs do not publish the tool schema.
+Live discovery confirmed `run_sql_query` takes `projectId` and `sqlQuery` and returns `{ columns, rows }`.
+The PAT can read the want-it project and a built-in SQL count succeeds.
+The custom event catalog is empty until ingestion succeeds.
 
 A full query has an eight-second deadline.
 Concurrent pool requests share only the pending query.
@@ -62,9 +64,10 @@ No synthetic local number is promoted to live evidence.
 Application events use an order-derived identity because the existing contract has no stable startup identifier.
 Historical demo startups each have one distinct identity.
 
-The cache lives in `data/keewano-cache/` and backfill progress in `data/keewano-backfill-receipt.json`.
-Keep both out of commits.
-This checkout excludes them locally through `.git/info/exclude`; other checkouts need the same local exclusions.
+The cache lives in `lib/keewano/.runtime/cache/` and backfill progress in `lib/keewano/.runtime/backfill.json`.
+The folder has a committed ignore rule, so progress and cached answers stay out of source control in every checkout.
+This changes the brief's suggested `data/` cache location to keep generated files inside teammate ownership.
+The empty legacy receipt currently tracked under `data/` is not used by the new script.
 
 ## Benchmark
 
@@ -91,8 +94,14 @@ Its fixtures exercise settlement behavior and do not prove real supplier calls.
 
 ## Open gates
 
-T2 is ready for upload, but ingestion is not done until the project accepts the events.
-T3 has tested transport/fallback behavior, but the real SQL schema and results still need the live-key check.
+T2 is blocked by an invalid event key.
+Live custom registration returned HTTP 403, and the read-only event-key check returned "Invalid Api Key".
+The current local event key matches the PAT, which cannot authenticate ingestion.
+Replace only `KEEWANO_EVENT_KEY` with the want-it project's SDK/event key, then rerun the backfill.
+No history has been ingested by this checkout.
+T3 has tested transport/fallback behavior and the actual SQL response format.
+The PAT successfully queried the project, returning zero users before backfill.
+A full demand query needs the custom events from T2; it correctly reports unavailable before those columns exist.
 T4's estimate data is complete; the requested observed human timing remains unmeasured.
 T5's script targets 4:35; a full live rehearsal remains pending.
 The lead still owns first real call, saving a fallback recording and final demo freeze.
@@ -104,3 +113,15 @@ The ingestion and custom-event payloads follow the [official REST API reference]
 The five-minute ingestion guidance and synthetic-history option come from the [SpeedHacks quickstart](https://docs.keewano.com/getting-started/speedhacks-quickstart.md).
 The query transport follows [MCP for agents](https://docs.keewano.com/analytics/mcp-for-agents.md).
 Distinct-buyer counting and the estimated percentile follow the [SQL guide](https://docs.keewano.com/sql-query-studio/guide.md) and [SQL reference](https://docs.keewano.com/sql-query-studio/reference.md).
+
+## Verified on 2026-10-11
+
+The ten Keewano tests pass, including malformed payloads, timeout, caching and concurrent queries.
+TypeScript and lint for teammate-owned code pass.
+The optimized production build passes.
+The lead's acceptance script passed 139 checks, failed zero and skipped one live-call check against an isolated production server on port 3103.
+The runtime database was `/tmp/want-it-teammate-01a12cd6/runtime.db`.
+The dashboard exposed the estimate label, unavailable evidence and negotiation controls through its accessibility tree.
+The production server explicitly disabled external keys during acceptance testing, so it placed no real calls and sent no live demand events.
+Full `pnpm lint` still reports five errors in the lead-owned acceptance script, at lines 71, 73, 81, 481 and 502.
+A complete live rehearsal has not been performed.
