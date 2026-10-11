@@ -66,6 +66,18 @@ test("settlement refuses an auto-run between vendor calls", async () => {
   assert.equal((await settle()).status, 409);
 });
 
+test("stopping during an asynchronous runner tick prevents the next call", async () => {
+  const runner = await import("@/lib/dial/runner");
+  const pending = runner.startRun("replay");
+  runner.stopRun();
+  await pending;
+  const calls = store.all("calls");
+  // Drain extraction in the broken implementation before the temporary DB is removed.
+  for (const call of calls) await (await import("@/lib/dial/refresh")).refreshCall(call.id);
+  assert.equal(calls.length, 0);
+  assert.equal(runner.runView().running, false);
+});
+
 test("order preview ignores unconfirmed and expired quotes", async () => {
   const order: Order = await (await create()).json();
   const stamp = new Date().toISOString();
