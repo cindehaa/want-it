@@ -58,9 +58,9 @@ export default function Stage({ lanes, facts, evidence, now, windowText, phase, 
   const total = lanes.length;
   const ranked = rankLanes(lanes);
   const bestLane = ranked[0]?.eligible && (ranked[0].eff?.effectiveCents ?? Infinity) < ranked[0].vendor.listPricePerSeatCents ? ranked[0] : null;
-  const refList = bestLane?.vendor.listPricePerSeatCents ?? Math.min(...lanes.map((l) => l.vendor.listPricePerSeatCents));
+  const refList = bestLane?.vendor.listPricePerSeatCents ?? 3000; // reference list price shown at checkout
   const bestCents = bestLane?.eff?.effectiveCents ?? null;
-  const price = bestCents != null ? usdSeat(bestCents) : usdSeat(refList);
+  const price = bestCents != null ? usdSeat(bestCents) : "—"; // no supplier-stated quote has landed yet
   const deltaPct = bestCents != null ? Math.round((1 - bestCents / refList) * 100) : 0;
 
   // ---- focus: most recently speaking active lane, unless the viewer pinned one
