@@ -40,7 +40,7 @@ export async function POST() {
     } else if (s.status === "list_price") {
       put("orders", { ...o, status: "list_price", finalPricePerSeatCents: listPriceOrDefault(o.category, o.preferredVendorId), updatedAt: at });
     } else if (s.status === "canceled_over_max") {
-      put("orders", { ...o, status: "canceled_over_max", finalPricePerSeatCents: null, updatedAt: at });
+      put("orders", { ...o, status: "canceled_over_max", finalPricePerSeatCents: null, holdAmountCents: 0, updatedAt: at }); // hold released
       emitEvent({ type: "canceled_over_max", orderId: o.id, category: o.category, seats: o.seats, priceCents: o.maxPricePerSeatCents ?? undefined, at });
     }
   }

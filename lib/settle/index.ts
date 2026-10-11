@@ -24,7 +24,7 @@ export function settleOrders(members: Order[], quotes: Quote[]): Settlement[] {
     const cap = Math.min(list, o.maxPricePerSeatCents ?? list);
     let best: { price: number; vendorId: string } | null = null;
     for (const q of quotes) {
-      if (q.separateAccountsConfirmed === false) continue;
+      if (q.separateAccountsConfirmed !== true) continue; // SPEC §4: only quotes that confirm separate accounts
       if (o.preferredVendorId && q.vendorId !== o.preferredVendorId) continue;
       const p = effectivePrice(q, poolSeatsFor(q.vendorId), o);
       if (p != null && (!best || p < best.price)) best = { price: p, vendorId: q.vendorId };
