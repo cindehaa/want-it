@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Badge, Spinner } from "@/components/pool/ui";
 
 export type RunMode = "live" | "replay" | "parallel";
@@ -31,7 +32,20 @@ export default function RunControls({
   stopping: boolean;
   settled: boolean;
 }) {
-  const busy = running || pending !== null;
+  const [liveBusy, setLiveBusy] = useState(false);
+  const [liveErr, setLiveErr] = useState<string | null>(null);
+  const liveCall = async () => {
+    setLiveBusy(true);
+    setLiveErr(null);
+    try {
+      const r = await fetch("/api/demo/live-call", { method: "POST" });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) setLiveErr(j.error ?? `HTTP ${r.status}`);
+    } finally {
+      setLiveBusy(false);
+    }
+  };
+  const busy = running || pending !== null || liveBusy;
   const startDisabled = busy || settled;
   const btn =
     "inline-flex h-7 items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 text-xs font-medium text-ink transition-colors hover:bg-canvas disabled:cursor-not-allowed disabled:opacity-50";
@@ -41,6 +55,10 @@ export default function RunControls({
         <span className="text-[11px] font-medium uppercase tracking-wide text-faint">Operator controls</span>
         <button type="button" onClick={onPlayback} disabled={!canPlayback || busy} className={btn} title={canPlayback ? undefined : "No finished calls with transcripts to play yet."}>
           {playbackOpen ? "Replay again" : "Play recorded calls side by side"}
+        </button>
+        <button type="button" onClick={() => void liveCall()} disabled={busy} className={`${btn} border-ink`}>
+          {liveBusy && <Spinner />}
+          Real call: Vantly (human)
         </button>
         <button type="button" onClick={() => onRun("replay")} disabled={startDisabled} className={btn}>
           {pending === "replay" && <Spinner />}
@@ -62,6 +80,11 @@ export default function RunControls({
         Live calls are real Dial phone calls (~3 min each).
         {running && <Badge tone="warn"> running</Badge>}
       </p>
+      {liveErr && (
+        <p role="alert" className="max-w-md break-words rounded-md border border-danger/30 bg-danger-soft px-2.5 py-1.5 text-xs text-danger">
+          {liveErr}
+        </p>
+      )}
       {error && (
         <p role="alert" className="max-w-md break-words rounded-md border border-danger/30 bg-danger-soft px-2.5 py-1.5 text-xs text-danger">
           {error}
