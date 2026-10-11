@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Marketplace, map first</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#f4f5f6}
+a{color:#047857}a:hover{color:#059669}
+.tnum{font-variant-numeric:tabular-nums}
+.step{width:36px;height:36px;border-radius:8px;border:1px solid #cfd5db;background:#ffffff;font:inherit;font-size:18px;color:#12171c;cursor:pointer}
+.step:hover{background:#f4f5f6}
+.dot{position:absolute;border-radius:999px;box-sizing:border-box;transform:translate(-50%,-50%)}
+.dot--pooled{background:rgba(16,185,129,.35);border:2px solid #059669}
+.dot--excluded{background:rgba(148,163,184,.35);border:2px dashed #64748b}
+.dot--you{background:rgba(16,185,129,.35);border:2px solid #059669;outline:2px solid #12171c;outline-offset:5px}
+@keyframes wi-join{0%{box-shadow:0 0 0 0 rgba(16,185,129,.7)}100%{box-shadow:0 0 0 28px rgba(16,185,129,0)}}
+.dot--join{animation:wi-join 1.4s cubic-bezier(.2,.8,.2,1) 1}
+@keyframes wi-pulse{0%{box-shadow:0 0 0 0 rgba(5,150,105,.55)}100%{box-shadow:0 0 0 9px rgba(5,150,105,0)}}
+.live-dot{animation:wi-pulse 1.6s cubic-bezier(.2,.8,.2,1) infinite}
+@keyframes wi-flash{0%{color:#047857}100%{color:#12171c}}
+.flash{animation:wi-flash 1.2s ease-out 1}
+.grid{background-image:linear-gradient(#e3e7ea 1px,transparent 1px),linear-gradient(90deg,#e3e7ea 1px,transparent 1px);background-size:64px 64px}
+@media (prefers-reduced-motion:reduce){.dot--join,.live-dot,.flash{animation:none}}
+</style>
+</helmet>
+<div style="min-height: 860px; box-sizing: border-box; display: flex; flex-direction: column; font-family: Geist, system-ui, sans-serif; color: #12171c; background: #f4f5f6;">
+
+  <header style="height: 48px; box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; background: #ffffff; border-bottom: 1px solid #e1e4e8;">
+    <a href="Store-OneLine.dc.html" style="display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px; letter-spacing: -0.01em; color: #12171c; text-decoration: none;"><span aria-hidden="true" style="width: 10px; height: 10px; border-radius: 999px; background: #059669; display: inline-block;"></span>want-it</a>
+    <nav aria-label="Primary" style="display: flex; gap: 4px; font-size: 14px;">
+      <a href="Store-OneLine.dc.html" style="padding: 6px 12px; border-radius: 6px; color: #5f6a75; text-decoration: none;">Buy</a>
+      <a href="Market-MapFirst.dc.html" aria-current="page" style="padding: 6px 12px; border-radius: 6px; background: #12171c; color: #ffffff; text-decoration: none;">Marketplace</a>
+      <a href="Main.dc.html" style="padding: 6px 12px; border-radius: 6px; color: #5f6a75; text-decoration: none;">Negotiation</a>
+    </nav>
+  </header>
+
+  <main class="grid" aria-label="Demand map" style="position: relative; flex: 1 1 auto; min-height: 812px; background-color: #eef1f3; overflow: hidden;">
+
+    <div aria-hidden="true" style="position: absolute; left: 0; top: 0; width: 100%; height: 100%;">
+      <div style="position: absolute; left: 0; top: 0; width: 34%; height: 100%; background: #e4e9ed;"></div>
+      <div style="position: absolute; left: 34%; top: 44%; width: 9%; height: 56%; background: #e4e9ed;"></div>
+    </div>
+
+    <sc-for list="{{dots}}" as="d" hint-placeholder-count="14">
+      <span class="dot {{d.cls}}" title="{{d.title}}" style="left: {{d.x}}; top: {{d.y}}; width: {{d.size}}; height: {{d.size}};"></span>
+    </sc-for>
+    <span aria-hidden="true" style="position: absolute; left: 41%; top: 36.5%; transform: translate(-50%, -100%); background: #12171c; color: #ffffff; font-size: 11px; font-weight: 600; padding: 3px 7px; border-radius: 4px;">You</span>
+
+    <form role="search" style="position: absolute; left: 24px; top: 20px; display: flex; align-items: center; gap: 8px; background: #ffffff; border: 1px solid #e1e4e8; border-radius: 10px; padding: 6px 6px 6px 12px; box-shadow: 0 4px 14px rgba(18,23,28,.06); width: 380px; box-sizing: border-box;">
+      <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#5f6a75" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"></circle><path d="M10.5 10.5L14 14"></path></svg>
+      <input type="search" aria-label="Search software" placeholder="Search software" style="flex: 1 1 auto; min-width: 0; border: 0; outline: none; font: inherit; font-size: 14px; color: #12171c; background: transparent;">
+      <span style="font-size: 12px; font-weight: 500; color: #047857; background: #e7f6ef; padding: 5px 9px; border-radius: 6px; white-space: nowrap;">SOC 2 compliance</span>
+    </form>
+
+    <div style="position: absolute; right: 24px; top: 20px; display: flex; align-items: center; gap: 18px; background: #ffffff; border: 1px solid #e1e4e8; border-radius: 10px; padding: 10px 16px; box-shadow: 0 4px 14px rgba(18,23,28,.06);">
+      <p class="tnum" style="margin: 0; display: flex; align-items: center; gap: 8px; font-size: 14px;"><span class="live-dot" aria-hidden="true" style="width: 7px; height: 7px; border-radius: 999px; background: #059669; display: inline-block;"></span><strong class="{{flashCls}}">{{seatsPooled}}</strong> seats from <strong class="{{flashCls}}">{{startups}}</strong> startups</p>
+      <span aria-hidden="true" style="width: 1px; height: 18px; background: #e1e4e8;"></span>
+      <p class="tnum" style="margin: 0; font-size: 14px;">best <strong>$19.00</strong> a seat, <span style="text-decoration: line-through; color: #8f98a2;">$30</span></p>
+    </div>
+
+    <div aria-label="Legend" style="position: absolute; left: 24px; bottom: 24px; display: flex; gap: 14px; font-size: 12px; color: #5f6a75; background: rgba(255,255,255,.9); border: 1px solid #e1e4e8; border-radius: 8px; padding: 6px 10px;">
+      <span style="display: inline-flex; align-items: center; gap: 6px;"><span aria-hidden="true" style="width: 10px; height: 10px; border-radius: 999px; background: rgba(16,185,129,.35); border: 2px solid #059669; box-sizing: border-box; display: inline-block;"></span>Pooled</span>
+      <span style="display: inline-flex; align-items: center; gap: 6px;"><span aria-hidden="true" style="width: 10px; height: 10px; border-radius: 999px; border: 2px dashed #64748b; box-sizing: border-box; display: inline-block;"></span>Excluded</span>
+      <span>Size is seats</span>
+    </div>
+
+    <section aria-label="Join the pool" style="position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); display: flex; align-items: center; gap: 20px; background: #ffffff; border: 1px solid #e1e4e8; border-radius: 12px; padding: 14px 16px 14px 20px; box-shadow: 0 10px 30px rgba(18,23,28,.10);">
+      <div>
+        <p style="margin: 0; font-size: 15px; font-weight: 600;">SOC 2 compliance seats</p>
+        <p class="tnum" style="margin: 2px 0 0; font-size: 13px; color: #5f6a75;">Your price today: $19.00 a seat, only goes down</p>
+      </div>
+      <div role="group" aria-label="Seats" style="display: flex; align-items: center; gap: 6px;">
+        <button type="button" class="step" aria-label="Fewer seats" onClick="{{dec}}">&minus;</button>
+        <span class="tnum" style="min-width: 44px; text-align: center; font-size: 18px; font-weight: 600;">{{seats}}</span>
+        <button type="button" class="step" aria-label="More seats" onClick="{{inc}}">+</button>
+      </div>
+      <a href="Store-OneLine.dc.html" style="display: inline-flex; align-items: center; height: 44px; padding: 0 20px; border-radius: 8px; background: #059669; color: #ffffff; font-size: 14px; font-weight: 600; text-decoration: none; white-space: nowrap;">Join the pool, at most {{total}}</a>
+    </section>
+
+    <div style="position: absolute; right: 24px; bottom: 24px; display: flex; gap: 8px;">
+      <a href="Main.dc.html" style="display: inline-flex; align-items: center; height: 40px; padding: 0 14px; border-radius: 8px; background: #ffffff; border: 1px solid #e1e4e8; color: #12171c; font-size: 13px; font-weight: 500; text-decoration: none;">Live negotiation</a>
+      <button type="button" style="display: inline-flex; align-items: center; height: 40px; padding: 0 14px; border-radius: 8px; background: #ffffff; border: 1px solid #e1e4e8; color: #12171c; font: inherit; font-size: 13px; font-weight: 500; cursor: pointer;">Details</button>
+      <button type="button" aria-label="Demo controls" style="width: 40px; height: 40px; border-radius: 8px; background: #ffffff; border: 1px solid #e1e4e8; color: #5f6a75; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="#5f6a75"><circle cx="3" cy="8" r="1.5"></circle><circle cx="8" cy="8" r="1.5"></circle><circle cx="13" cy="8" r="1.5"></circle></svg></button>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":860}}'>
+const BUYERS = [
+  { x: 41, y: 36.5, s: 28, k: "you", t: "You, 10 seats" },
+  { x: 38, y: 30, s: 22, k: "pooled", t: "Simulated buyer, 8 seats" },
+  { x: 44, y: 48, s: 34, k: "pooled", t: "Simulated buyer, 30 seats" },
+  { x: 52, y: 55, s: 26, k: "pooled", t: "Simulated buyer, 14 seats" },
+  { x: 58, y: 63, s: 40, k: "pooled", t: "Simulated buyer, 45 seats" },
+  { x: 63, y: 70, s: 24, k: "pooled", t: "Simulated buyer, 12 seats" },
+  { x: 69, y: 74, s: 30, k: "pooled", t: "Simulated buyer, 20 seats" },
+  { x: 74, y: 66, s: 20, k: "pooled", t: "Simulated buyer, 6 seats" },
+  { x: 47, y: 24, s: 24, k: "pooled", t: "Simulated buyer, 12 seats" },
+  { x: 56, y: 40, s: 36, k: "pooled", t: "Simulated buyer, 36 seats" },
+  { x: 64, y: 52, s: 22, k: "pooled", t: "Simulated buyer, 8 seats" },
+  { x: 78, y: 80, s: 28, k: "pooled", t: "Simulated buyer, 18 seats" },
+  { x: 35, y: 60, s: 22, k: "excluded", t: "Excluded, deadline before the window closes" },
+  { x: 71, y: 32, s: 26, k: "excluded", t: "Excluded, wrong category" }
+];
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { seats: 10, tick: 0 }; }
+  componentDidMount() { this.timer = setInterval(() => this.setState((s) => ({ tick: s.tick + 1 })), 4000); }
+  componentWillUnmount() { clearInterval(this.timer); }
+  renderVals() {
+    const { seats, tick } = this.state;
+    const joinIdx = [8, 11, 3][tick % 3];
+    const dots = BUYERS.map((b, i) => ({
+      x: b.x + "%", y: b.y + "%", size: b.s + "px", title: b.t,
+      cls: "dot--" + b.k + (i === joinIdx && tick > 0 ? " dot--join" : "")
+    }));
+    const phase = tick % 3;
+    return {
+      dots, seats,
+      seatsPooled: [249, 261, 269][phase],
+      startups: [12, 13, 14][phase],
+      flashCls: tick > 0 ? "flash" : "",
+      total: "$" + (seats * 19).toLocaleString("en-US"),
+      dec: () => this.setState((s) => ({ seats: Math.max(1, s.seats - 1) })),
+      inc: () => this.setState((s) => ({ seats: Math.min(500, s.seats + 1) }))
+    };
+  }
+}
+</script>
+</body>
+</html>

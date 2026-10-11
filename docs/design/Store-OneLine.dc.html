@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Storefront, one-sentence order</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#f4f5f6}
+a{color:#047857}a:hover{color:#059669}
+.tnum{font-variant-numeric:tabular-nums}
+.inline-num{font:inherit;font-weight:600;font-variant-numeric:tabular-nums;color:#12171c;background:#ffffff;border:1px solid #cfd5db;border-radius:8px;padding:2px 10px;width:4ch;text-align:center;box-sizing:content-box}
+.inline-num:focus{outline:2px solid #059669;outline-offset:2px;border-color:#059669}
+@keyframes wi-pulse{0%{box-shadow:0 0 0 0 rgba(5,150,105,.55)}100%{box-shadow:0 0 0 9px rgba(5,150,105,0)}}
+.live-dot{animation:wi-pulse 1.6s cubic-bezier(.2,.8,.2,1) infinite}
+@keyframes wi-flash{0%{color:#047857}100%{color:#12171c}}
+.flash{animation:wi-flash 1.2s ease-out 1}
+@media (prefers-reduced-motion:reduce){.live-dot,.flash{animation:none}}
+</style>
+</helmet>
+<div style="min-height: 820px; box-sizing: border-box; display: flex; flex-direction: column; font-family: Geist, system-ui, sans-serif; color: #12171c; background: #f4f5f6;">
+
+  <header style="height: 48px; box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; background: #ffffff; border-bottom: 1px solid #e1e4e8;">
+    <a href="Store-OneLine.dc.html" style="display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px; letter-spacing: -0.01em; color: #12171c; text-decoration: none;"><span aria-hidden="true" style="width: 10px; height: 10px; border-radius: 999px; background: #059669; display: inline-block;"></span>want-it</a>
+    <nav aria-label="Primary" style="display: flex; gap: 4px; font-size: 14px;">
+      <a href="Store-OneLine.dc.html" aria-current="page" style="padding: 6px 12px; border-radius: 6px; background: #12171c; color: #ffffff; text-decoration: none;">Buy</a>
+      <a href="Market-MapFirst.dc.html" style="padding: 6px 12px; border-radius: 6px; color: #5f6a75; text-decoration: none;">Marketplace</a>
+      <a href="Main.dc.html" style="padding: 6px 12px; border-radius: 6px; color: #5f6a75; text-decoration: none;">Negotiation</a>
+    </nav>
+  </header>
+
+  <main style="flex: 1 1 auto; width: 100%; max-width: 720px; margin: 0 auto; box-sizing: border-box; padding: 72px 24px 48px; display: flex; flex-direction: column; gap: 40px;">
+
+    <section aria-label="Product" style="display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; padding-bottom: 28px; border-bottom: 1px solid #e1e4e8;">
+      <div style="min-width: 0;">
+        <h1 style="margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.15;">SOC 2 compliance software</h1>
+        <p style="margin: 8px 0 0; font-size: 15px; color: #5f6a75; line-height: 1.45;">Per-seat plan, your own account. Pooled with other startups; one agent negotiates one price. It only goes down.</p>
+      </div>
+      <div style="flex-shrink: 0; text-align: right;">
+        <p class="tnum {{flashCls}}" style="margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.02em; line-height: 1;">{{groupPrice}}</p>
+        <p style="margin: 6px 0 0; display: flex; align-items: center; justify-content: flex-end; gap: 7px; font-size: 13px; color: #5f6a75;"><span class="live-dot" aria-hidden="true" style="width: 7px; height: 7px; border-radius: 999px; background: #059669; display: inline-block;"></span>group price so far, <span class="tnum" style="text-decoration: line-through;">$30</span> list</p>
+        <p class="tnum" style="margin: 4px 0 0; font-size: 13px; color: #5f6a75;">{{pooled}} startups pooled</p>
+      </div>
+    </section>
+
+    <form aria-label="Order" style="display: flex; flex-direction: column; gap: 28px;">
+      <p style="margin: 0; font-size: 26px; line-height: 1.6; font-weight: 400; letter-spacing: -0.01em;">
+        We need
+        <label style="display: inline;"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0);">Seats</span><input class="inline-num" type="number" min="1" max="500" value="{{seats}}" onChange="{{setSeats}}" style="font-size: 24px;"></label>
+        seats.
+      </p>
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <label style="display: flex; align-items: center; gap: 10px; font-size: 15px; color: #12171c; cursor: pointer;">
+          <input type="checkbox" checked="{{useCap}}" onChange="{{toggleCap}}" style="width: 18px; height: 18px; accent-color: #059669; margin: 0;">
+          Set a price cap
+        </label>
+        <sc-if value="{{useCap}}" hint-placeholder-val="{{true}}">
+          <p style="margin: 0; font-size: 26px; line-height: 1.6; letter-spacing: -0.01em;">
+            Only buy at or under
+            <label style="display: inline;"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0);">Maximum price per seat in dollars</span><span style="color: #5f6a75;">$</span><input class="inline-num" type="number" min="1" step="1" value="{{cap}}" onChange="{{setCap}}" style="font-size: 24px;"></label>
+            a seat.
+          </p>
+        </sc-if>
+      </div>
+
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 20px; padding-top: 24px; border-top: 1px solid #e1e4e8;">
+        <div>
+          <p style="margin: 0; font-size: 14px; color: #5f6a75;">You will pay at most</p>
+          <p class="tnum" style="margin: 2px 0 0; font-size: 24px; font-weight: 600; letter-spacing: -0.02em;">{{total}}</p>
+        </div>
+        <a href="Market-MapFirst.dc.html" style="display: inline-flex; align-items: center; height: 48px; padding: 0 24px; border-radius: 8px; background: #059669; color: #ffffff; font-size: 15px; font-weight: 600; text-decoration: none;">Place order</a>
+      </div>
+      <p style="margin: 0; font-size: 12px; color: #5f6a75; line-height: 1.5;">A simulated card hold, charged only at the final price. Company name and contact come after you confirm. All five vendors are test vendors.</p>
+    </form>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":820}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { seats: 10, cap: 24, useCap: true, tick: 0 }; }
+  componentDidMount() { this.timer = setInterval(() => this.setState((s) => ({ tick: s.tick + 1 })), 5000); }
+  componentWillUnmount() { clearInterval(this.timer); }
+  renderVals() {
+    const { seats, cap, useCap, tick } = this.state;
+    const moved = tick % 2 === 1;
+    const group = moved ? 19 : 20;
+    const perSeat = Math.min(30, useCap ? Math.max(1, cap) : 30);
+    const n = Math.max(1, Math.min(500, Number(seats) || 1));
+    const total = "$" + (n * perSeat).toLocaleString("en-US");
+    return {
+      seats, cap, useCap,
+      groupPrice: "$" + group.toFixed(2),
+      pooled: moved ? 12 : 11,
+      flashCls: moved && tick > 0 ? "flash" : "",
+      total,
+      setSeats: (e) => this.setState({ seats: e.target.value }),
+      setCap: (e) => this.setState({ cap: Number(e.target.value) }),
+      toggleCap: (e) => this.setState({ useCap: e.target.checked })
+    };
+  }
+}
+</script>
+</body>
+</html>
