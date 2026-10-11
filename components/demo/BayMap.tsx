@@ -177,7 +177,7 @@ export default function BayMap({
       {hub && (
         <div
           className="dm-fade pointer-events-none absolute z-10 whitespace-nowrap rounded-md bg-ink px-2.5 py-1.5 text-[12px] font-semibold leading-tight text-white"
-          style={{ left: `${(hub[0] / W) * 100}%`, top: `${(hub[1] / H) * 100}%`, transform: "translate(40px, -50%)", animationDelay: "0.7s" }}
+          style={{ left: `${(hub[0] / W) * 100}%`, top: `${(hub[1] / H) * 100}%`, transform: "translate(46px, -50%)", animationDelay: "0.7s" }}
         >
           One group request
         </div>
