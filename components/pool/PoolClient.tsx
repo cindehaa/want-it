@@ -3,10 +3,12 @@
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PoolView } from "@/lib/contracts";
-import EvidenceCard from "./EvidenceCard";
+import EvidenceCard, { EvidenceBadges } from "./EvidenceCard";
 import NegotiationPanel from "./NegotiationPanel";
 import PoolHeader, { type DataSource } from "./PoolHeader";
 import PriceCurve from "./PriceCurve";
+import SettlePanel from "./SettlePanel";
+import { Step, Stepper, phaseOf, stepState } from "./Story";
 import TimeSavedHero from "./TimeSavedHero";
 import { buildFixture, type FixtureStage } from "./fixture";
 
@@ -14,6 +16,12 @@ const DemandMap = dynamic(() => import("./DemandMap"), {
   ssr: false,
   loading: () => <div className="grid h-full place-items-center text-sm text-muted">Loading map…</div>,
 });
+
+const EXCLUSION_REASON: Record<string, string> = {
+  wrong_category: "different category",
+  deadline_before_window: "deadline before the window closes",
+  canceled: "canceled",
+};
 
 const POLL_MS = 1500;
 const CALL_POLL_MS = 3000;
@@ -88,7 +96,7 @@ export default function PoolClient() {
 
   if (!view) {
     return (
-      <main className="mx-auto max-w-[1400px] px-4 py-10 sm:px-6">
+      <main className="mx-auto max-w-[920px] px-4 py-10 sm:px-6">
         <p className="text-sm text-muted" role="status">
           Loading the marketplace…
         </p>
@@ -97,36 +105,70 @@ export default function PoolClient() {
   }
 
   const onChanged = () => void refreshRef.current();
+  const phase = phaseOf(view);
+  const ordersById = new Map(view.orders.map((o) => [o.id, o]));
+  const excluded = view.pool.exclusions.flatMap((e) => {
+    const o = ordersById.get(e.orderId);
+    return o ? [{ name: o.buyerName, reason: EXCLUSION_REASON[e.reason] ?? e.reason }] : [];
+  });
 
   return (
-    <main className="mx-auto w-full max-w-[1400px] px-4 pb-12 pt-5 sm:px-6">
-      <PoolHeader view={view} source={source} stale={stale} onChanged={onChanged} />
+    <div className="min-h-[calc(100vh-3rem)] bg-white">
+      <main className="mx-auto w-full max-w-[920px] px-4 pb-16 pt-5 sm:px-6">
+        <PoolHeader view={view} source={source} stale={stale} onChanged={onChanged} />
 
-      <div className="mt-5 flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,430px)] lg:items-start lg:gap-5">
-        {/* Left: the mechanism. On small screens the wrappers dissolve so `order` can interleave. */}
-        <div className="contents lg:flex lg:min-w-0 lg:flex-col lg:gap-4">
-          <section
-            aria-label="Demand map"
-            className="relative isolate order-2 h-[340px] overflow-hidden rounded-xl border border-line bg-surface sm:h-[440px] lg:order-none lg:h-[500px]"
+        <Stepper phase={phase} />
+
+        <div className="mt-9">
+          <Step n={1} title="Pool the demand" state={stepState(1, phase)}>
+            <p className="text-[15px] leading-snug">
+              <span className="tabular font-semibold">{view.pool.memberOrderIds.length}</span> startups
+              {" · "}
+              <span className="tabular font-semibold">{view.pool.totalSeats}</span> seats waiting.{" "}
+              <span className="text-muted">Cards are held, not charged.</span>
+            </p>
+            <section
+              aria-label="Demand map"
+              className="relative isolate mt-3 h-[280px] overflow-hidden rounded-lg border border-line bg-surface sm:h-[320px]"
+            >
+              <DemandMap view={view} />
+            </section>
+            {excluded.length > 0 && (
+              <p className="mt-3 text-[13px] leading-snug text-muted">
+                <span className="font-medium text-ink">Not pooled:</span>{" "}
+                {excluded.map((e, i) => (
+                  <span key={`${e.name}-${i}`}>
+                    {i > 0 && ", "}
+                    {e.name} <span className="text-faint">({e.reason})</span>
+                  </span>
+                ))}
+              </p>
+            )}
+          </Step>
+
+          <Step
+            n={2}
+            title="Find leverage"
+            state={stepState(2, phase)}
+            aside={<EvidenceBadges evidence={view.evidence} now={view.now} />}
           >
-            <DemandMap view={view} />
-          </section>
-          <section aria-label="Price and demand curve" className="order-3 min-w-0 rounded-xl border border-line bg-surface lg:order-none">
+            <EvidenceCard evidence={view.evidence} />
+          </Step>
+
+          <Step n={3} title="Negotiate by phone" state={stepState(3, phase)}>
+            <NegotiationPanel view={view} phase={phase} onChanged={onChanged} />
+          </Step>
+
+          <Step n={4} title="Everyone pays less" state={stepState(4, phase)} last>
             <PriceCurve view={view} />
-          </section>
+            <SettlePanel view={view} phase={phase} onChanged={onChanged} />
+          </Step>
         </div>
 
-        {/* Right: hero + evidence + negotiation. */}
-        <div className="contents lg:flex lg:min-w-0 lg:flex-col lg:gap-4">
-          <div className="order-1 min-w-0 lg:order-none">
-            <TimeSavedHero view={view} />
-          </div>
-          <div className="order-4 min-w-0 divide-y divide-line rounded-xl border border-line bg-surface lg:order-none">
-            <EvidenceCard evidence={view.evidence} now={view.now} />
-            <NegotiationPanel view={view} onChanged={onChanged} />
-          </div>
+        <div className="mt-2">
+          <TimeSavedHero view={view} />
         </div>
-      </div>
-    </main>
+      </main>
+    </div>
   );
 }
