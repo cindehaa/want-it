@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { DemandEvidence, PoolView } from "@/lib/contracts";
-import { getJson, postJson } from "@/components/pool/api";
+import { deleteJson, getJson, postJson } from "@/components/pool/api";
 import { fmtAgo, fmtRemaining, usdSeat } from "@/components/pool/format";
 import { Badge, Spinner } from "@/components/pool/ui";
 import { buildLanes, parseRun, poolFacts, rankLanes, type Lane, type RunState } from "./derive";
@@ -71,6 +71,7 @@ export default function NegotiationClient() {
   const [personas, setPersonas] = useState<PersonasPayload | null>(null);
   const [pending, setPending] = useState<RunMode | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
+  const [stopping, setStopping] = useState(false);
   const everLive = useRef(false);
   const forced = useRef(false);
 
@@ -167,6 +168,16 @@ export default function NegotiationClient() {
     void poolRef.current();
   }
 
+  async function stopRun() {
+    setStopping(true);
+    setRunError(null);
+    const res = await deleteJson("/api/pool/negotiate-all");
+    setStopping(false);
+    if (!res.ok) setRunError(res.error);
+    else setRun(parseRun(res.data));
+    void poolRef.current();
+  }
+
   if (!view) {
     return (
       <main className="mx-auto max-w-[1400px] px-4 py-10 sm:px-6">
@@ -215,7 +226,7 @@ export default function NegotiationClient() {
           </dl>
           <Leverage evidence={view.evidence} now={view.now} />
         </div>
-        {showControls && <RunControls running={running} pending={pending} error={runError} onRun={startRun} />}
+        {showControls && <RunControls running={running} pending={pending} error={runError ?? (run?.error === "Stopped by user" ? null : run?.error ?? null)} onRun={startRun} onStop={stopRun} stopping={stopping} />}
       </div>
 
       <section aria-label="Vendor calls" className="mt-6 grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3">
@@ -278,6 +289,7 @@ function RunBadge({ run, lanes }: { run: RunState | null; lanes: Lane[] }) {
     );
   }
   if (run.finishedAt) {
+    if (run.error) return <Badge tone="warn">{run.error === "Stopped by user" ? "Run stopped" : "Run failed"}</Badge>;
     const got = lanes.filter((l) => l.eligible).length;
     return <Badge tone="accent">Run finished: {got} of {lanes.length} quotes</Badge>;
   }
@@ -341,17 +353,17 @@ function SettleFooter({
       <div className="min-w-0 text-sm">
         {settled ? (
           <p>
-            <span className="font-semibold">Pool settled.</span> <span className="text-muted">Each startup now has its final price and its own account link.</span>
+            <span className="font-semibold">Pool settled.</span> <span className="text-muted">Final prices and cancellations are saved. Buyers with group deals have their own test account links.</span>
           </p>
         ) : best && best.eff ? (
           <p>
             <span className="font-semibold">Best deal: {best.vendor.name} at {usdSeat(best.eff.effectiveCents)} per seat.</span>{" "}
             <span className="text-muted">
-              Settling applies it to every pooled startup whose own price cap allows it. Anyone above their cap is canceled and their hold released.
+              Settlement checks price caps, expiry, and final volume. Buyers who cannot get a valid price within their cap are canceled and their hold released.
             </span>
           </p>
         ) : (
-          <p className="text-muted">No ranked quote yet. Settling now would leave every startup at list price.</p>
+          <p className="text-muted">No eligible group quote. Settlement uses list price where the buyer&apos;s cap allows it and cancels the other orders.</p>
         )}
         {error && (
           <p role="alert" className="mt-2 max-w-xl break-words rounded-md border border-danger/30 bg-danger-soft px-2.5 py-1.5 text-xs text-danger">
@@ -364,11 +376,11 @@ function SettleFooter({
           <button
             type="button"
             onClick={settle}
-            disabled={busy || running || !best || !live}
+            disabled={busy || running || view.calls.some((c) => c.status !== "extracted" && c.status !== "failed") || !live}
             className="inline-flex h-10 items-center gap-2 rounded-md bg-ink px-4 text-sm font-medium text-white transition-colors hover:bg-ink/85 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {busy && <Spinner />}
-            Settle pool with best deal
+            {best ? "Settle pool with best deal" : "Settle pool without a group deal"}
           </button>
         )}
         <Link href="/pool" className="text-sm font-medium text-accent-strong underline underline-offset-2 hover:text-accent">

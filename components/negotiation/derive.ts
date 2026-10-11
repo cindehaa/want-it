@@ -12,6 +12,8 @@ export type RunState = {
   order: string[];
   startedAt: string | null;
   finishedAt: string | null;
+  error?: string | null;
+  vendorStates?: Record<string, string>;
 };
 
 export function parseRun(v: unknown): RunState | null {
@@ -26,6 +28,8 @@ export function parseRun(v: unknown): RunState | null {
     order: Array.isArray(r.order) ? r.order.filter((x): x is string => typeof x === "string") : [],
     startedAt: typeof r.startedAt === "string" ? r.startedAt : null,
     finishedAt: typeof r.finishedAt === "string" ? r.finishedAt : null,
+    error: typeof r.error === "string" ? r.error : null,
+    vendorStates: Object.fromEntries(((o.progress as { vendors?: { vendorId: string; state: string }[] } | undefined)?.vendors ?? []).map((v) => [v.vendorId, v.state])),
   };
 }
 
@@ -70,7 +74,10 @@ export type Lane = {
 function laneStatus(call: Call | null, run: RunState | null, vendorId: string): LaneStatus {
   if (!call) {
     if (run && !run.running && run.finishedAt && run.order.includes(vendorId)) {
-      return run.mode === "replay" ? "no_recording" : "failed";
+      const state = run.vendorStates?.[vendorId];
+      if (state === "no_recording") return "no_recording";
+      if (state === "failed") return "failed";
+      if (!run.error && !state) return run.mode === "replay" ? "no_recording" : "failed";
     }
     return "waiting";
   }

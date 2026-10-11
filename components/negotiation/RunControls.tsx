@@ -9,11 +9,15 @@ export default function RunControls({
   pending,
   error,
   onRun,
+  onStop,
+  stopping,
 }: {
   running: boolean;
   pending: RunMode | null;
   error: string | null;
   onRun: (mode: RunMode) => void;
+  onStop: () => void;
+  stopping: boolean;
 }) {
   const busy = running || pending !== null;
   return (
@@ -37,6 +41,11 @@ export default function RunControls({
           {pending === "replay" && <Spinner />}
           Replay recorded calls
         </button>
+        {running && (
+          <button type="button" onClick={onStop} disabled={stopping} className="rounded-md border border-line px-3 py-2 text-sm disabled:opacity-50">
+            {stopping ? "Stopping..." : "Stop after current call"}
+          </button>
+        )}
       </div>
       <p className="text-xs leading-snug text-muted lg:text-right">
         Calls are real Dial phone calls, one at a time (~3 min each).

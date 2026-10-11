@@ -59,7 +59,7 @@ export default function NegotiationPanel({ view, onChanged }: { view: PoolView; 
 
   const calls = [...view.calls].sort((a, b) => a.sequence - b.sequence);
   const latestId = calls[calls.length - 1]?.id;
-  const busyCall = calls.some((c) => c.status === "queued" || c.status === "in_progress");
+  const busyCall = calls.some((c) => c.status !== "extracted" && c.status !== "failed");
   const settled = view.pool.status === "settled";
   const vendorName = (id: string) => view.vendors.find((v) => v.id === id)?.name ?? id;
 

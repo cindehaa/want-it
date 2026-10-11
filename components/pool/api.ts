@@ -46,3 +46,7 @@ export function postJson(path: string, body: unknown): Promise<ApiResult> {
 export function getJson(path: string): Promise<ApiResult> {
   return requestJson(path, { cache: "no-store" });
 }
+
+export function deleteJson(path: string): Promise<ApiResult> {
+  return requestJson(path, { method: "DELETE" });
+}
