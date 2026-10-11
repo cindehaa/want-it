@@ -44,9 +44,9 @@ graph TD
 | L1 | L | V0 | 2:30 | done | L0 | `lib/db.ts`, `lib/clock.ts`, `lib/pool/**`, `lib/seed.ts` | 14 simulated buyers seeded; pool + exclusions computed; clock offset works. |
 | L2 | L | V0 | 2:40 | done | L1 | `app/page.tsx`, `app/orders/**`, `app/api/orders/**` | Order → "confirmed" with hold; cancel works; idempotent. |
 | L3 | L | V0 | 2:45 | done | L1 | `app/pool/**`, `app/api/pool/route.ts`, `components/**` | Map + curve + exclusions render from real DB state. |
-| L4 | L | V1 | 2:55 | doing | L0, T1 | `lib/dial/**`, `app/api/pool/negotiate/**`, `app/api/calls/**` | Real outbound call placed and transcript polled. |
-| L5 | L | V1 | 3:05 | doing | L4 | `lib/quote/**`, `lib/settle/**`, `app/api/pool/settle/**` | Transcript → Quote (Claude); settle applies SPEC §4 rules. |
-| L6 | L | V1 | 3:10 | doing | L5, T4 | `app/pool/**`, `components/**` | Call panel + transcript + quote cards + time-saved counter. |
+| L4 | L | V1 | 2:55 | done | L0, T1 | `lib/dial/**`, `app/api/pool/negotiate/**`, `app/api/calls/**` | Real outbound call placed and transcript polled. |
+| L5 | L | V1 | 3:05 | done | L4 | `lib/quote/**`, `lib/settle/**`, `app/api/pool/settle/**` | Transcript → Quote (Claude); settle applies SPEC §4 rules. |
+| L6 | L | V1 | 3:10 | done | L5, T4 | `app/pool/**`, `components/**` | Call panel + transcript + quote cards + time-saved counter. |
 | X1 | L | V1 | 3:15 | todo | L6, T1 | — | One real Dial call A→B with AI Certly persona; stored for replay (`source: recorded_replay`). Human fallback if AI vendor fails. |
 | L7 | L | V2 | 3:30 | todo | T3, V1 | `lib/dial/prompt.ts`, `app/pool/**`, order routes | Evidence numbers appear in call instruction + evidence card; events recorded on order/cancel. |
 | L8 | L | V2 | 3:40 | todo | V1 | `lib/dial/prompt.ts` | Vantly call cites Certly's extracted quote; Cindy answers. **Cut first if late.** |

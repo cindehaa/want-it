@@ -9,3 +9,4 @@ Format: `HH:MM [L|T] message`
 - 14:09 [L] CHANGE: vendors are Dial AI agents (number B inboundInstruction per vendor), no human on phone. T1 Dial step updated: buy number B, send Cindy API key + number A id + number B id/E.164. Ask Dial staff for credits.
 - 14:10 [L] Merged L1/L2: storefront, order page, order/pool/settle/demo APIs, 14-buyer seed. Waiting on dashboard (L3/L6) + Dial (L4/L5).
 - 14:15 [L] V0 DONE (tag v0): storefront + order page + /pool dashboard (map, curve, time-saved, evidence card, negotiation panel) on real API. L6 UI built; waiting on Dial engine (L4/L5) + keys.
+- 14:16 [L] Merged L4/L5: Dial engine (persona PATCH on number B, call A→B, poll, Claude quote extraction, replay/record). GET /api/pool now advances active calls. BLOCKED on .env.local Dial keys for X1 (first real call).
