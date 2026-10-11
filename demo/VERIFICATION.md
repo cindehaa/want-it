@@ -1,7 +1,8 @@
 # Certly flow verification
 
 Verified on 2026-10-11 against a local production server on port 3103.
-The source version is `2a5420c`; later changes in this PR only document the evidence.
+The final replay and settlement verification used `eaafc77`, including the latest redesign and parallel-runner integration.
+The later stage-copy correction changes only the displayed description of final outcomes.
 The server used an isolated SQLite database under `/tmp/want-it-certly-flow-01a12cd6`.
 Automatic negotiation, live dialing, and demand-event ingestion were disabled on the test server.
 Quote extraction used the configured real API key and the stored real Certly transcript.
@@ -39,7 +40,7 @@ Repeated settlement leaves the final orders unchanged.
 
 ## Checks and evidence
 
-All 28 regression tests pass.
+All 31 regression tests pass, including the redesigned storefront/map price helpers and stopping parallel setup before dialing.
 Full lint, TypeScript, and the optimized production build pass.
 The offline production acceptance suite passes 136 checks with zero failures and two explicit skips.
 The skipped recorded extraction was tested separately through the real API flow.
@@ -50,7 +51,8 @@ This does not claim a VoiceOver session or customer validation.
 Receipts and screenshots are retained under `/tmp/want-it-certly-flow-01a12cd6`.
 The real extraction receipt is `latest-production/receipt.json`.
 The rejected-volume receipt is `unsupported-volume-receipt.json`.
-The regression log is `tests-final-ui.log`, and the offline acceptance log is `final-acceptance.log`.
+The regression log is `tests-shipping.log`, and the final production replay log is `shipping-proof.log`.
+The offline acceptance log is `final-acceptance.log`.
 
 To repeat the real extraction check, start a separate production server with `DB_PATH` under `/tmp`, `AUTO_NEGOTIATE=off`, and live Dial and Keewano ingestion keys disabled.
 Keep the quote-extraction key configured on that server.
@@ -67,5 +69,6 @@ Run `pnpm test`, `pnpm lint`, `pnpm exec tsc --noEmit`, and `pnpm build` for loc
 Settlement validates a conservative allocation rather than searching every feasible vendor assignment.
 The demo uses fictional vendors, simulated payments, and test account links.
 A full live demo rehearsal and video recording are separate from this verification.
+Parallel Dial hardware was not exercised; parallel stop handling used a mock service, and the real transcript replay used the configured extraction API.
 The current Vercel SQLite configuration stores data in per-instance `/tmp`, which is not durable shared storage.
 Persistent production deployment was outside the original local-only MVP and has not been validated here.
