@@ -126,7 +126,11 @@ The lead's acceptance script passed 139 checks, failed zero and skipped one live
 The runtime database was `/tmp/want-it-teammate-01a12cd6/runtime.db`.
 The dashboard exposed the estimate label, unavailable evidence and negotiation controls through its accessibility tree.
 The production server explicitly disabled external keys during acceptance testing, so it placed no real calls and sent no live demand events.
-Full `pnpm lint` still reports five errors in the lead-owned acceptance script, at lines 71, 73, 81, 481 and 502.
+The five acceptance-script lint errors were fixed in commit `e96df0edb9bf26dd2330405ff1504100409777e0`.
+Full `pnpm lint` and TypeScript now pass.
+The production build and eleven Keewano tests pass on that version.
+The typed acceptance script passed 139 checks, failed zero and skipped one live-call check against a production server using `/tmp/want-it-lint-fix-01a12cd6/runtime.db`.
+External API keys were disabled for that run.
 A complete live rehearsal has not been performed.
 
 The final production build and runtime verification used commit `f1f13bdaa54171319333ca6b581bc9baeb176ae5`.
@@ -134,6 +138,7 @@ The final production build and runtime verification used commit `f1f13bdaa541713
 Generating the procurement instructions from that actual API response included the 60 interested startups, 21 abandoning over price and simulated-history disclosure.
 No supplier call was placed by this verification.
 [PR 1](https://github.com/cindehaa/want-it/pull/1) contains the remaining fixes, benchmark and demo script.
-It is a mergeable draft; no remote CI checks or review comments are configured or present at handoff.
-The draft preserves the remaining full-lint and live-rehearsal gates.
+The lead merged PR 1 before the lint follow-up.
+The full live rehearsal remains pending.
+The repository has no remote CI workflows configured.
 Temporary servers started for verification have been stopped.
