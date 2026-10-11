@@ -1,0 +1,55 @@
+/* Negotiation room: motion only for real state changes (new turn, quote landing, leaderboard reorder). */
+@keyframes neg-turn-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.neg-turn-new {
+  animation: neg-turn-in 0.35s ease-out 1;
+}
+
+@keyframes neg-quote-land {
+  0% {
+    box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.55);
+    background-color: rgba(5, 150, 105, 0.16);
+  }
+  100% {
+    box-shadow: 0 0 0 10px rgba(5, 150, 105, 0);
+    background-color: rgba(231, 246, 239, 0.5);
+  }
+}
+.neg-quote-new {
+  animation: neg-quote-land 1.4s ease-out 1;
+}
+
+@keyframes neg-pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(161, 98, 7, 0.45);
+  }
+  100% {
+    box-shadow: 0 0 0 7px rgba(161, 98, 7, 0);
+  }
+}
+.neg-calling {
+  animation: neg-pulse-ring 1.6s ease-out infinite;
+}
+
+.neg-row {
+  transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .neg-turn-new,
+  .neg-quote-new,
+  .neg-calling {
+    animation: none;
+  }
+  .neg-row {
+    transition: none;
+  }
+}
