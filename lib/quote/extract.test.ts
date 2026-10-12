@@ -15,7 +15,7 @@ test("replaying a call preserves the supplier's original seven-day expiry", asyn
   t.mock.method(globalThis, "fetch", async (_url: unknown, opts: RequestInit) => {
     const body = JSON.parse(opts.body as string);
     assert.match(body.messages[0].content, /2026-10-11T22:03:25.569Z/);
-    const terms = { vendorStatedPrice: true, tiers: [{ minSeats: 96, pricePerSeatDollars: 21 }], perAccountFeeDollars: 0, separateAccountsConfirmed: true, expiresInDays: 7, expiresOnDate: null, conditions: [], evidence: [call.transcriptTurns[1].text] };
+    const terms = { vendorStatedPrice: true, tiers: [{ minSeats: 96, pricePerSeatDollars: 21 }], minSeatsPerAccount: null, perAccountFeeDollars: 0, separateAccountsConfirmed: true, expiresInDays: 7, expiresOnDate: null, conditions: [], evidence: [call.transcriptTurns[1].text] };
     return new Response(JSON.stringify({ id: "msg_test", type: "message", role: "assistant", model: body.model, content: [{ type: "text", text: JSON.stringify(terms) }], stop_reason: "end_turn", stop_sequence: null, usage: { input_tokens: 10, output_tokens: 10 } }), { headers: { "content-type": "application/json" } });
   });
   const quote = await extractQuote(call, { now: replayAt });

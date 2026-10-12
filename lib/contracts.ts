@@ -113,6 +113,7 @@ export const Quote = z.object({
   vendorId: z.string(),
   tiers: z.array(z.object({ minSeats: z.number().int(), pricePerSeatCents: z.number().int() })),
   perAccountFeeCents: z.number().int(), // per buyer account; 0 if not stated
+  minSeatsPerAccount: z.number().int().positive().optional(),
   separateAccountsConfirmed: z.boolean().nullable(),
   expiresAt: z.string().nullable(),
   conditions: z.array(z.string()),
