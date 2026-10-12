@@ -1,0 +1,121 @@
+[
+  {
+    "id": "quote_e9ed3229",
+    "callId": "recording_cmv4eaih401bt0foxfnttr2yp",
+    "vendorId": "certly",
+    "tiers": [
+      {
+        "minSeats": 96,
+        "pricePerSeatCents": 2200
+      }
+    ],
+    "perAccountFeeCents": 0,
+    "separateAccountsConfirmed": true,
+    "expiresAt": "2026-10-14T22:28:00.000Z",
+    "conditions": [
+      "group cohort pricing for 96 seats",
+      "each company on its own account",
+      "valid through Wednesday October 14 3:28 PM Pacific"
+    ],
+    "evidence": "For this cohort, I can offer twenty two dollars per seat with no per account fee. ... Each company on its own account valid through your Wednesday, October fourteenth, three twenty eight PM Pacific deadline. ... But you should assume dollar twenty two slash seat is the number for this window.",
+    "status": "supplier_stated",
+    "createdAt": "2026-10-12T00:00:47.533Z"
+  },
+  {
+    "id": "quote_750bcaad",
+    "callId": "recording_cmv4eefmx01d00fox0sqc81o7",
+    "vendorId": "vantly",
+    "tiers": [
+      {
+        "minSeats": 10,
+        "pricePerSeatCents": 2100
+      }
+    ],
+    "perAccountFeeCents": 5000,
+    "separateAccountsConfirmed": true,
+    "expiresAt": "2026-10-18T22:34:55.305Z",
+    "conditions": [
+      "each company must sign at 10+ seats to get the $21 rate",
+      "$50 one-time onboarding fee per company account",
+      "each startup signs its own order form"
+    ],
+    "evidence": "I can beat twenty two dollars by coming in at twenty one dollars per seat for companies buying ten plus seats, plus the fifty dollars one time onboarding fee ... per company account. Each start up gets its own separate Ventley account and signs its own order form at that rate. ... This offer is valid for seven days from today, and the only condition is that each company signs at ten plus seats to get the twenty one dollars rate.",
+    "status": "supplier_stated",
+    "createdAt": "2026-10-12T00:00:47.548Z"
+  },
+  {
+    "id": "quote_f2bcb4f7",
+    "callId": "recording_cmv4eigqw01dr0fqql08lw9hf",
+    "vendorId": "trustwise",
+    "tiers": [
+      {
+        "minSeats": 10,
+        "pricePerSeatCents": 2700
+      },
+      {
+        "minSeats": 25,
+        "pricePerSeatCents": 2500
+      },
+      {
+        "minSeats": 50,
+        "pricePerSeatCents": 2400
+      }
+    ],
+    "perAccountFeeCents": 0,
+    "separateAccountsConfirmed": true,
+    "expiresAt": "2026-10-17T06:59:59.000Z",
+    "conditions": [
+      "first-year pricing only",
+      "renewal after year one at then-current list price",
+      "each company gets its own separate account and order form"
+    ],
+    "evidence": "First year only, ten plus seats, twenty seven dollars per seat, Twenty five plus seats, twenty five dollars per seat. ... Fifty plus seats, including your current eighty six, twenty four dollars per seat, There's no per account fee, and each company gets its own separate Trustwise account and its own order form. ... This offer would be valid through Friday, October sixteenth. ... Renewal after year one would be at the then current list price.",
+    "status": "supplier_stated",
+    "createdAt": "2026-10-12T00:00:47.549Z"
+  },
+  {
+    "id": "quote_70d71323",
+    "callId": "recording_cmv4emk6w01f30foxm5dulqmn",
+    "vendorId": "auditly",
+    "tiers": [
+      {
+        "minSeats": 86,
+        "pricePerSeatCents": 1600
+      }
+    ],
+    "perAccountFeeCents": 15000,
+    "separateAccountsConfirmed": true,
+    "expiresAt": "2026-10-22T06:59:59.000Z",
+    "conditions": [
+      "$150 one-time onboarding fee per company account, fixed and cannot be waived",
+      "each startup signs its own order form and pays Auditly directly",
+      "group rate applies across all 86 seats over 11 startups"
+    ],
+    "evidence": "Given eighty six seats across eleven start ups, each with its own account and paying you I can do a group rate of sixteen dollars per seat for all of them. ... Each start up would get its own separate Auditly account. ... I can hold that pricing for ten days from today, so through October twenty first. ... One, I can't waive or cut the one hundred and fifty dollars per account onboarding fee.",
+    "status": "supplier_stated",
+    "createdAt": "2026-10-12T00:00:47.549Z"
+  },
+  {
+    "id": "quote_c72b1f1a",
+    "callId": "recording_cmv4eqmbu01g60fqqp9xpdnjj",
+    "vendorId": "complykit",
+    "tiers": [
+      {
+        "minSeats": 86,
+        "pricePerSeatCents": 2100
+      }
+    ],
+    "perAccountFeeCents": 0,
+    "separateAccountsConfirmed": true,
+    "expiresAt": "2026-10-18T22:44:23.850Z",
+    "conditions": [
+      "twelve month term required for each startup",
+      "applies to the 86 seat cohort across eleven startups",
+      "price is all in",
+      "each startup has its own order form signed and billed separately"
+    ],
+    "evidence": "can do twenty one dollars per seat, all in, for each start up's own CompliKit account, each with its own twelve month contract and its own billing. ... Per account fee, none. ... Each start up gets its own separate CompliKit account and its own order form signed and billed separately. ... Offer validity, Good for seven days from today, so through next Sunday.",
+    "status": "supplier_stated",
+    "createdAt": "2026-10-12T00:00:47.549Z"
+  }
+]

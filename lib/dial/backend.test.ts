@@ -92,6 +92,8 @@ test("the saved library exposes all five playable calls without creating order o
   const route = await import("@/app/api/recordings/route");
   const result = await route.GET().json();
   assert.equal(result.calls.length, 5);
+  assert.equal(result.quotes.length, 5);
+  assert.ok(result.quotes.every((quote: import("@/lib/contracts").Quote) => result.calls.some((call: import("@/lib/contracts").Call) => call.id === quote.callId && call.vendorId === quote.vendorId)));
   assert.ok(result.calls.every((call: import("@/lib/contracts").Call) => call.audio.recordingUrl?.startsWith("/recordings/") && call.audio.liveUrl === null));
   assert.deepEqual(store.all("calls"), before);
 });
