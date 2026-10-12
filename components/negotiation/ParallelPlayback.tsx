@@ -47,14 +47,14 @@ export function lanesAt(view: PoolView, lanes: Lane[], plan: PlaybackLane[], t: 
   const members = view.orders.filter((o) => ids.has(o.id));
   return lanes.map((l) => {
     const p = plan.find((x) => x.vendorId === l.vendor.id);
-    if (!p?.call) return { ...l, call: null, quote: null, eff: null, eligible: false, status: "no_recording" as const, bestBefore: null };
+    if (!p?.call) return { ...l, call: null, quote: null, quotedTier: null, eff: null, eligible: false, status: "no_recording" as const, bestBefore: null };
     const landed = t >= p.endMs;
     const turns = p.call.transcriptTurns.filter((x) => x.startMs <= t);
     const quote = landed ? (view.quotes.find((q) => q.callId === p.call!.id) ?? null) : null;
     const eff = quote ? effectiveFor(quote, members, new Date(view.now)) : null;
     const eligible = !!quote && quote.separateAccountsConfirmed === true && !!eff;
     const status: Lane["status"] = !landed ? "calling" : quote ? "extracted" : p.call.status === "failed" ? "failed" : "extracted";
-    return { ...l, call: { ...p.call, transcriptTurns: turns }, quote, eff, eligible, status, bestBefore: null };
+    return { ...l, call: { ...p.call, transcriptTurns: turns }, quote, quotedTier: landed ? l.quotedTier : null, eff, eligible, status, bestBefore: null };
   });
 }
 

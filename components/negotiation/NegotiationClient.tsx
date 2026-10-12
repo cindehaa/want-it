@@ -93,7 +93,7 @@ export default function NegotiationClient() {
       if (!looksLikePoolView(json)) throw new Error("unexpected pool shape");
       if (!savedRecordings.current && json.vendors.some((vendor) => !json.calls.some((call) => call.vendorId === vendor.id))) {
         try {
-          const recordings = await fetch("/api/recordings", { cache: "force-cache" });
+          const recordings = await fetch("/api/recordings", { cache: "no-store" });
           if (recordings.ok) savedRecordings.current = await recordings.json();
         } catch {
           // A library outage must not hide the current pool or an active call.
@@ -278,10 +278,10 @@ export default function NegotiationClient() {
   const liveBest = liveRanked[0]?.eligible ? liveRanked[0] : null;
   const total = lanes.length;
   const liveCount = lanes.filter(isLive).length;
-  const quoted = lanes.filter((l) => l.eligible).length;
+  const quoted = lanes.filter((l) => !!l.quote).length;
   const anyCalling = liveCount > 0;
   // The run or replay is over.
-  const runFinished = replaying ? clock.finished : !running && !anyCalling && (!!run?.finishedAt || lanes.some((l) => l.eligible));
+  const runFinished = replaying ? clock.finished : !running && !anyCalling && (!!run?.finishedAt || lanes.some((l) => !!l.quote));
   const started = replaying || running || lanes.some((l) => !!l.call);
   const bestCents = best?.eff?.effectiveCents ?? null;
   const lowestList = view.vendors.reduce((m, v) => Math.min(m, v.listPricePerSeatCents), Infinity);
@@ -298,7 +298,7 @@ export default function NegotiationClient() {
   const closed = view.pool.status === "settled" || closesInMs <= 0;
   const settled = view.pool.status === "settled";
   const settleReady =
-    source === "live" && !running && !replaying && !settled && runFinished && !!liveBest?.eff && !view.calls.some((c) => c.status !== "extracted" && c.status !== "failed");
+    source === "live" && !running && !replaying && !settled && runFinished && !!liveBest?.eff && !view.calls.some((call) => call.id.startsWith("recording_")) && !view.calls.some((c) => c.status !== "extracted" && c.status !== "failed");
   const replayEndMs = Object.fromEntries(plan.map((p) => [p.vendorId, p.endMs]));
   const settleLabel = settled ? "Pool settled" : liveBest?.eff ? `Settle pool at ${usdSeat(liveBest.eff.effectiveCents)}` : "Settle pool";
 
@@ -319,7 +319,7 @@ export default function NegotiationClient() {
                   a seat. List from <span className="tabular line-through">{usdSeat(listRef)}</span>, {deltaPct}% below
                 </>
               ) : (
-                <>a seat at list. No quote yet</>
+                <>a seat at list. {view.quotes.length ? "No eligible offer yet" : "No quote yet"}</>
               )}
             </span>
           </p>

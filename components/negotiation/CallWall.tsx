@@ -62,7 +62,7 @@ export default function CallWall({ lanes, replaying, replayClockMs, replayEndMs,
       const cite = l.bestBefore ?? bestCents;
       return cite != null ? `No offer yet. Citing ${usdSeat(cite)}` : "No offer yet. Nothing to cite before this call";
     }
-    if (l.eligible && l.eff) return `Quote ${usdSeat(l.eff.effectiveCents)} a seat`;
+    if (l.quotedTier) return `Quote ${usdSeat(l.quotedTier.pricePerSeatCents)} a seat${l.quote && l.quote.perAccountFeeCents > 0 ? ` + ${usdSeat(l.quote.perAccountFeeCents)} per account` : ""}`;
     if (l.status === "failed") return "Call failed, no quote";
     if (l.status === "no_recording") return "No recording to replay";
     if (l.status === "extracted") return "No better offer";
@@ -116,7 +116,7 @@ export default function CallWall({ lanes, replaying, replayClockMs, replayEndMs,
         {rows.length === 0 && <p className="border-t border-line px-1 py-3 text-[13px] text-muted">Every vendor is on a call right now.</p>}
         {rows.map((l) => {
           const queued = l.status === "waiting";
-          const quote = l.eligible && l.eff ? usdSeat(l.eff.effectiveCents) : isDone(l) ? "none" : "";
+          const quote = l.quotedTier ? usdSeat(l.quotedTier.pricePerSeatCents) : isDone(l) ? "none" : "";
           const summary = queued
             ? running
               ? "Queued, dials when a line frees up"
@@ -151,8 +151,9 @@ function callNote(l: Lane): string {
   const q = l.quote;
   if (!q) return "no usable quote";
   if (q.separateAccountsConfirmed !== true) return "separate accounts not confirmed";
-  if (!l.eff) return "no tier at this pool size";
-  return q.perAccountFeeCents > 0 ? `${usdSeat(q.perAccountFeeCents)} account fee` : "no account fee";
+  if (!l.quotedTier) return "no current tier at this pool size";
+  const fee = q.perAccountFeeCents > 0 ? `${usdSeat(q.perAccountFeeCents)} account fee` : "no account fee";
+  return /each company.*10\+|10\+.*each company/i.test(q.conditions.join(" ")) ? `${fee}, 10+ seats per company` : fee;
 }
 
 function Meter({ className = "" }: { className?: string }) {
