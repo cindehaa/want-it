@@ -54,7 +54,7 @@ Vercel cannot write its deployed public directory, so hosted fresh recordings us
 
 ## Five saved calls
 
-`GET /api/recordings` returns `{ calls: Call[] }` for all five bundled real recordings.
+`GET /api/recordings` returns `{ calls: Call[], quotes: Quote[] }` for all five bundled real recordings.
 It works independently of SQLite state and does not start phone calls or extraction requests.
 Each call has `source:"recorded_replay"`, its original timestamp and transcript, and an `audio.recordingUrl` under `/recordings/<vendorId>.m4a`.
 Use this endpoint for saved playback even when `/api/pool` has no call rows.
@@ -77,3 +77,16 @@ Existing regression checks cover five concurrent starts within two seconds using
 Real metadata and recording downloads were checked with the existing API key.
 Actual concurrent calls remain unverified until the additional phone numbers and lane configuration are supplied.
 The hosted app still uses temporary SQLite storage, as durable storage was deferred.
+
+
+## Saved quote recovery
+
+The library also includes five supplier-stated quotes extracted from the bundled real transcripts.
+Each quote matches its recording id and includes transcript evidence, fees, volume conditions, and the original expiry.
+The call wall shows the stated seat price and keeps account fees in the existing call summary.
+Certly quoted $22 per seat for the 96-seat cohort.
+Vantly quoted $21 per seat with a $50 account fee and a minimum of 10 seats per company.
+Trustwise quoted $24 per seat at 50 or more seats, with no account fee and first-year pricing only.
+Auditly quoted $16 per seat for the 86-seat cohort, plus $150 per account.
+ComplyKit's final quote was $21 per seat for the 86-seat cohort with no account fee and a 12-month commitment.
+Recorded display quotes do not write to the current pool database or enable settlement without current call rows.

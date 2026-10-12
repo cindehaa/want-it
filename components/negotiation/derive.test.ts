@@ -65,3 +65,30 @@ test("a current vendor call takes priority over its saved recording", async () =
   assert.equal(result.calls.filter((call) => call.vendorId === current.vendorId).length, 1);
   assert.equal(result.quotes, view.quotes);
 });
+
+
+test("saved supplier quotes attach to their recording and preserve current quotes", async () => {
+  const { withSavedRecordings } = await import("./recordings");
+  const { recordedPlayback } = await import("@/lib/dial/playback");
+  const recordings = (await import("@/data/recorded-calls.json")).default;
+  const quotes = (await import("@/data/recorded-quotes.json")).default;
+  const view = buildFixture("open");
+  view.vendors = VENDORS;
+  view.calls = [];
+  view.quotes = [];
+  const result = withSavedRecordings(view, { calls: recordedPlayback(recordings), quotes });
+  assert.equal(result.quotes.length, 5);
+  assert.equal(view.quotes.length, 0);
+  assert.ok(result.quotes.every((quote) => result.calls.some((call) => call.id === quote.callId && call.vendorId === quote.vendorId)));
+  const lanes = buildLanes(result, null);
+  for (const [vendor, cents] of [["certly", 2200], ["vantly", 2100], ["trustwise", 2400], ["auditly", 1600], ["complykit", 2100]] as const) {
+    assert.equal(lanes.find((lane) => lane.vendor.id === vendor)?.quotedTier?.pricePerSeatCents, cents);
+  }
+  const current = result.calls.find((call) => call.vendorId === "certly")!;
+  const currentQuote = { ...result.quotes.find((quote) => quote.vendorId === "certly")!, id: "current_quote", callId: "current_call" };
+  view.calls = [{ ...current, id: "current_call", source: "live", status: "extracted" }];
+  view.quotes = [currentQuote];
+  const mixed = withSavedRecordings(view, { calls: recordedPlayback(recordings), quotes });
+  assert.equal(mixed.quotes.find((quote) => quote.vendorId === "certly"), currentQuote);
+  assert.equal(mixed.quotes.filter((quote) => quote.vendorId === "certly").length, 1);
+});

@@ -1,4 +1,4 @@
-import { Call } from "@/lib/contracts";
+import { Call, Quote } from "@/lib/contracts";
 import type { PoolView } from "@/lib/contracts";
 
 /** Saved calls are display-only history; current pool calls and quotes take priority. */
@@ -15,5 +15,14 @@ export function withSavedRecordings(view: PoolView, payload: unknown): PoolView 
   });
   if (saved.length === 0) return view;
   // These transcripts are complete. There is no extraction running for the current pool.
-  return { ...view, calls: [...view.calls, ...saved.map((call) => ({ ...call, status: "extracted" as const }))] };
+  const parsedQuotes = Quote.array().safeParse((payload as { quotes?: unknown } | null)?.quotes);
+  const savedQuotes = parsedQuotes.success ? parsedQuotes.data.filter((quote) =>
+    saved.some((call) => call.id === quote.callId && call.vendorId === quote.vendorId) &&
+    !view.quotes.some((current) => current.callId === quote.callId || current.id === quote.id),
+  ) : [];
+  return {
+    ...view,
+    calls: [...view.calls, ...saved.map((call) => ({ ...call, status: "extracted" as const }))],
+    quotes: savedQuotes.length ? [...view.quotes, ...savedQuotes] : view.quotes,
+  };
 }

@@ -71,6 +71,7 @@ export type Lane = {
   index: number;
   call: Call | null;
   quote: Quote | null;
+  quotedTier: Quote["tiers"][number] | null;
   status: LaneStatus;
   eff: Effective | null;
   /** Counts toward the ranking: separate accounts confirmed (SPEC section 4) and a tier exists at pool size. */
@@ -130,9 +131,13 @@ export function buildLanes(view: PoolView, run: RunState | null): Lane[] {
     const calls = view.calls.filter((c) => c.vendorId === vendor.id).sort((a, b) => b.sequence - a.sequence);
     const call = calls[0] ?? null;
     const quote = call ? (view.quotes.find((q) => q.callId === call.id) ?? null) : null;
+    const offeredSeats = members.filter((order) => !order.preferredVendorId || order.preferredVendorId === vendor.id).reduce((sum, order) => sum + order.seats, 0);
+    const quotedTier = quote && (quote.expiresAt === null || Date.parse(quote.expiresAt) > Date.parse(view.now))
+      ? quote.tiers.filter((tier) => tier.minSeats <= offeredSeats).sort((a, b) => a.pricePerSeatCents - b.pricePerSeatCents)[0] ?? null
+      : null;
     const eff = quote ? effectiveFor(quote, members, new Date(view.now)) : null;
     const eligible = !!quote && quote.separateAccountsConfirmed === true && !!eff;
-    const lane: Lane = { vendor, index, call, quote, status: laneStatus(call, run, vendor.id), eff, eligible, bestBefore: best };
+    const lane: Lane = { vendor, index, call, quote, quotedTier, status: laneStatus(call, run, vendor.id), eff, eligible, bestBefore: best };
     if (eligible && eff && (best == null || eff.effectiveCents < best)) best = eff.effectiveCents;
     return lane;
   });
