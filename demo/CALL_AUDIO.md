@@ -90,3 +90,12 @@ Trustwise quoted $24 per seat at 50 or more seats, with no account fee and first
 Auditly quoted $16 per seat for the 86-seat cohort, plus $150 per account.
 ComplyKit's final quote was $21 per seat for the 86-seat cohort with no account fee and a 12-month commitment.
 Recorded display quotes do not write to the current pool database or enable settlement without current call rows.
+
+## Winner eligibility
+
+The seeded pool has 96 seats, but 10 are reserved for Certly and 8 others have caps below ComplyKit's $21 price.
+ComplyKit therefore has 78 qualifying seats against its 86-seat cohort requirement.
+Trustwise has 56 qualifying seats against its 50-seat threshold, so its $24 offer currently ranks first.
+Eight additional eligible seats allow ComplyKit's $21 offer to win.
+Vantly's 10-seat requirement is per company, represented by the optional `Quote.minSeatsPerAccount` field and enforced before those seats support a vendor's volume tier.
+Quotes without this field retain their existing behavior.

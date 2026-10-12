@@ -41,7 +41,8 @@
     ],
     "evidence": "I can beat twenty two dollars by coming in at twenty one dollars per seat for companies buying ten plus seats, plus the fifty dollars one time onboarding fee ... per company account. Each start up gets its own separate Ventley account and signs its own order form at that rate. ... This offer is valid for seven days from today, and the only condition is that each company signs at ten plus seats to get the twenty one dollars rate.",
     "status": "supplier_stated",
-    "createdAt": "2026-10-12T00:00:47.548Z"
+    "createdAt": "2026-10-12T00:00:47.548Z",
+    "minSeatsPerAccount": 10
   },
   {
     "id": "quote_f2bcb4f7",

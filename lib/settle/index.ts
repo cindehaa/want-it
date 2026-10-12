@@ -9,6 +9,7 @@ export function tierPrice(q: Quote, seats: number): number | null {
 
 /** Effective per-seat price for one order under quote q at pool size `poolSeats`. */
 export function effectivePrice(q: Quote, poolSeats: number, order: Order): number | null {
+  if (order.seats < (q.minSeatsPerAccount ?? 1)) return null;
   const p = tierPrice(q, poolSeats);
   if (p == null) return null;
   return Math.round(p + q.perAccountFeeCents / order.seats);
@@ -23,7 +24,7 @@ export function quoteIsValid(q: Quote, at: Date = new Date()): boolean {
 
 export function settleOrders(members: Order[], quotes: Quote[], at: Date = new Date()): Settlement[] {
   const valid = quotes.filter((q) => quoteIsValid(q, at));
-  const supported = new Map(valid.map((q) => [q.vendorId, new Set(members.filter((o) => !o.preferredVendorId || o.preferredVendorId === q.vendorId).map((o) => o.id))]));
+  const supported = new Map(valid.map((q) => [q.vendorId, new Set(members.filter((o) => (!o.preferredVendorId || o.preferredVendorId === q.vendorId) && o.seats >= (q.minSeatsPerAccount ?? 1)).map((o) => o.id))]));
   const poolSeatsFor = (vendorId: string) =>
     members.filter((o) => supported.get(vendorId)?.has(o.id)).reduce((s, o) => s + o.seats, 0);
   const decide = (): Settlement[] => members.map((o) => {

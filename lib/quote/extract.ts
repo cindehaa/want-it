@@ -16,11 +16,12 @@ const Extraction = z.object({
   tiers: z
     .array(
       z.object({
-        minSeats: z.number().describe("minimum total seats at which this price applies; 1 if the vendor tied no minimum to it"),
+        minSeats: z.number().describe("minimum pooled total seats at which this price applies; 1 if none stated; do not put a per-company minimum here"),
         pricePerSeatDollars: z.number().describe("price per seat in US dollars as stated by the vendor"),
       }),
     )
     .describe("every per-seat price tier the vendor stated or explicitly confirmed"),
+  minSeatsPerAccount: z.number().nullable().describe("minimum seats each individual company must buy; null if the vendor stated no per-company minimum"),
   perAccountFeeDollars: z.number().describe("fixed fee per buyer account (setup/onboarding/admin) in dollars; 0 if none or not mentioned"),
   separateAccountsConfirmed: z
     .boolean()
@@ -43,6 +44,7 @@ Rules:
 - If the vendor only restated its list price with no group discount, that is still a stated price: include it as a tier.
 - evidence must be copied VERBATIM from the transcript (exact words), only from lines where the vendor stated or confirmed the terms. Do not paraphrase.
 - separateAccountsConfirmed: true only on an explicit vendor confirmation; false only if the vendor said buyers must share one account; otherwise null.
+- Keep a per-company seat minimum separate from the pooled volume tier: store it in minSeatsPerAccount. A group of smaller accounts does not satisfy a per-company minimum.
 - Dollar amounts spoken as words ("twenty-four dollars") are numbers (24).`;
 
 // ---------------------------------------------------------------------------------------------
@@ -144,6 +146,7 @@ export async function extractQuote(call: Call, opts: { now?: Date } = {}): Promi
     vendorId: call.vendorId,
     tiers,
     perAccountFeeCents: Math.max(0, Math.round(x.perAccountFeeDollars * 100)),
+    minSeatsPerAccount: x.minSeatsPerAccount == null ? undefined : Math.max(1, Math.round(x.minSeatsPerAccount)),
     separateAccountsConfirmed: x.separateAccountsConfirmed,
     expiresAt: resolveExpiry(x, base),
     conditions: x.conditions.map((c) => c.trim()).filter(Boolean),

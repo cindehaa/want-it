@@ -131,7 +131,7 @@ export function buildLanes(view: PoolView, run: RunState | null): Lane[] {
     const calls = view.calls.filter((c) => c.vendorId === vendor.id).sort((a, b) => b.sequence - a.sequence);
     const call = calls[0] ?? null;
     const quote = call ? (view.quotes.find((q) => q.callId === call.id) ?? null) : null;
-    const offeredSeats = members.filter((order) => !order.preferredVendorId || order.preferredVendorId === vendor.id).reduce((sum, order) => sum + order.seats, 0);
+    const offeredSeats = members.filter((order) => (!order.preferredVendorId || order.preferredVendorId === vendor.id) && order.seats >= (quote?.minSeatsPerAccount ?? 1)).reduce((sum, order) => sum + order.seats, 0);
     const quotedTier = quote && (quote.expiresAt === null || Date.parse(quote.expiresAt) > Date.parse(view.now))
       ? quote.tiers.filter((tier) => tier.minSeats <= offeredSeats).sort((a, b) => a.pricePerSeatCents - b.pricePerSeatCents)[0] ?? null
       : null;
